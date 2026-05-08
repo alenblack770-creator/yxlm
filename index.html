@@ -816,7 +816,8 @@
         }
         return `<div class="hero-empty-all"><strong>未能加载英雄数据</strong>
             <p>在国内网络或 GitHub Pages 上，浏览器访问 <code style="color:var(--tech);">ddragon.leagueoflegends.com</code> 及常见 CORS 代理经常失败，页面会<strong>优先读取本站同源文件</strong>（无需跨域）。</p>
-            <p><strong>推荐做法（一次配置即可）：</strong>在仓库中新建 <code style="color:var(--gold);">data/champion.json</code>（与 <code style="color:var(--gold);">index.html</code> 同级目录 <code>data</code>），放入从 Data Dragon 下载的<strong>中文版</strong>完整 <code>champion.json</code>，提交后重新部署。访问地址应为：<code style="color:var(--tech);">…/你的站点/data/champion.json</code> 能 200 打开即成功。本站会<strong>先请求该文件</strong>，并用其中的 <code>version</code> 字段对齐头像与技能图版本。</p>
+            <p><strong>推荐做法：</strong>在仓库 <code style="color:var(--gold);">data/champion.json</code> 中放入 Data Dragon 的<strong>完整版</strong>中文版数据（单文件通常约 <strong>0.8MB～2MB+</strong>）。每个英雄对象内必须含 <code>skins</code>、<code>spells</code> 等字段；若只有几百 KB、且没有 <code>skins</code>，那是<strong>精简/列表用 JSON</strong>，本页无法正确解析。正确下载地址示例：<code style="color:var(--tech);">https://ddragon.leagueoflegends.com/cdn/版本号/data/zh_CN/champion.json</code>（不要用 champion 列表接口生成的瘦身文件）。</p>
+            <p>部署后访问 <code style="color:var(--tech);">…/data/champion.json</code> 应返回 200；页面会读取其中的 <code>version</code> 对齐资源版本。</p>
             <p>若仍走外网，请用 F12 →「网络」查看 <code>champion.json</code> 是否被拦截。</p></div>`;
     }
 
@@ -855,34 +856,41 @@
         return Object.values(data.data);
     }
 
-    // 将官方英雄对象映射为前端数据结构
+    // 将官方英雄对象映射为前端数据结构（兼容缺字段的 JSON，避免 skins/spells 缺失时报错）
     function mapChampion(champ) {
         const tags = champ.tags;
         const lane = (tags && tags.length > 0) ? (ROLE_MAP[tags[0]] || 'top') : 'top';
-        const iconUrl = `${ddImgRoot()}/champion/${champ.image.full}`;
-        const attackType = champ.info.attack > 5 ? '物理' : '魔法';
+        const info = champ.info || { attack: 5, defense: 5, magic: 5, difficulty: 5 };
+        const imgFile = (champ.image && champ.image.full) ? champ.image.full : `${champ.id || 'Unknown'}.png`;
+        const iconUrl = `${ddImgRoot()}/champion/${imgFile}`;
+        const attackType = info.attack > 5 ? '物理' : '魔法';
+        const spells = Array.isArray(champ.spells) ? champ.spells : [];
+        let skins = Array.isArray(champ.skins) ? champ.skins : [];
+        if (!skins.length) {
+            skins = [{ name: 'default', num: 0 }];
+        }
         return {
             name: champ.name,
             id: champ.id,
             icon: iconUrl,
             dmg: attackType,
-            style: Math.round(champ.info.difficulty / 2),
+            style: Math.round((info.difficulty || 5) / 2),
             radar: [
-                champ.info.attack * 10,
-                champ.info.defense * 10,
-                champ.info.magic * 10,
-                champ.info.difficulty * 10,
+                (info.attack || 5) * 10,
+                (info.defense || 5) * 10,
+                (info.magic || 5) * 10,
+                (info.difficulty || 5) * 10,
                 50
             ],
-            lore: champ.lore,
-            skills: (champ.spells || []).map(spell => ({
-                n: spell.name,
-                i: `${ddImgRoot()}/spell/${spell.image.full}`,
-                d: stripHtml(spell.description).substring(0, 80)
+            lore: champ.lore || '',
+            skills: spells.map(spell => ({
+                n: spell.name || '',
+                i: spell.image && spell.image.full ? `${ddImgRoot()}/spell/${spell.image.full}` : '',
+                d: stripHtml(spell.description || '').substring(0, 80)
             })),
-            skins: champ.skins.map(skin => ({
-                n: skin.name === 'default' ? champ.name : skin.name,
-                num: skin.num,
+            skins: skins.map(skin => ({
+                n: skin.name === 'default' ? champ.name : (skin.name || champ.name),
+                num: skin.num != null ? skin.num : 0,
                 t: `https://ddragon.leagueoflegends.com/cdn/img/champion/loading/${champ.id}_${skin.num}.jpg`,
                 f: `https://ddragon.leagueoflegends.com/cdn/img/champion/splash/${champ.id}_${skin.num}.jpg`
             })),
@@ -901,10 +909,20 @@
     async function initHeroModule() {
         try {
             const champs = await fetchAllChampions();
+            const sample = champs.find(x => x && x.id);
+            if (sample && !Array.isArray(sample.skins) && !Array.isArray(sample.spells)) {
+                console.warn('champion.json 疑似精简版（无 skins/spells），请换用 Data Dragon 完整 champion.json');
+                showToast('champion.json 不是完整版，请换官方 data/zh_CN/champion.json');
+            }
             heroData = { top: [], jungle: [], mid: [], bottom: [], support: [] };
             champs.forEach(c => {
-                const m = mapChampion(c);
-                heroData[m.lane].push(m);
+                if (!c || !c.name || !c.id) return;
+                try {
+                    const m = mapChampion(c);
+                    heroData[m.lane].push(m);
+                } catch (err) {
+                    console.warn('跳过无法解析的英雄:', c.id || c.name, err);
+                }
             });
         } catch (e) {
             console.error('英雄数据加载失败', e);
