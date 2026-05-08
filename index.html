@@ -809,46 +809,45 @@
     }
 
     // 将官方英雄对象映射为前端数据结构
-    function mapChampion(champ) {
-        const tags = champ.tags;
-        const lane = (tags && tags.length > 0) ? (ROLE_MAP[tags[0]] || 'top') : 'top';
-        const iconUrl = `${ddImgRoot()}/champion/${champ.image.full}`;
-        const attackType = champ.info.attack > 5 ? '物理' : '魔法';
-        return {
-            name: champ.name,
-            id: champ.id,
-            icon: iconUrl,
-            dmg: attackType,
-            style: Math.round(champ.info.difficulty / 2),
-            radar: [
-                champ.info.attack * 10,
-                champ.info.defense * 10,
-                champ.info.magic * 10,
-                champ.info.difficulty * 10,
-                50
-            ],
-            lore: champ.lore,
-            skills: (champ.spells || []).map(spell => ({
-                n: spell.name,
-                i: `${ddImgRoot()}/spell/${spell.image.full}`,
-                d: stripHtml(spell.description).substring(0, 80)
-            })),
-            skins: champ.skins.map(skin => ({
-                n: skin.name === 'default' ? champ.name : skin.name,
-                num: skin.num,
-                t: `https://ddragon.leagueoflegends.com/cdn/img/champion/loading/${champ.id}_${skin.num}.jpg`,
-                f: `https://ddragon.leagueoflegends.com/cdn/img/champion/splash/${champ.id}_${skin.num}.jpg`
-            })),
-            // 模拟永恒星碑数据
-            eternals: {
-                kills: Math.floor(Math.random() * 2000),
-                deaths: Math.floor(Math.random() * 1500),
-                assists: Math.floor(Math.random() * 3000),
-                wins: Math.floor(Math.random() * 600)
-            },
-            lane
-        };
-    }
+ function mapChampion(champ) {
+    const tags = champ.tags;
+    const lane = (tags && tags.length > 0) ? (ROLE_MAP[tags[0]] || 'top') : 'top';
+    const iconUrl = `${DD_IMG}/champion/${champ.image.full}`;
+    const attackType = (champ.info?.attack || 0) > 5 ? '物理' : '魔法';
+    return {
+        name: champ.name,
+        id: champ.id,
+        icon: iconUrl,
+        dmg: attackType,
+        style: Math.round((champ.info?.difficulty || 0) / 2),
+        radar: [
+            (champ.info?.attack || 0) * 10,
+            (champ.info?.defense || 0) * 10,
+            (champ.info?.magic || 0) * 10,
+            (champ.info?.difficulty || 0) * 10,
+            50
+        ],
+        lore: champ.lore,
+        skills: (champ.spells || []).map(spell => ({
+            n: spell.name,
+            i: `${DD_IMG}/spell/${spell.image.full}`,
+            d: stripHtml(spell.description).substring(0, 80)
+        })),
+        skins: (champ.skins || []).map(skin => ({
+            n: skin.name === 'default' ? champ.name : skin.name,
+            num: skin.num,
+            t: `https://ddragon.leagueoflegends.com/cdn/img/champion/loading/${champ.id}_${skin.num}.jpg`,
+            f: `https://ddragon.leagueoflegends.com/cdn/img/champion/splash/${champ.id}_${skin.num}.jpg`
+        })),
+        eternals: {
+            kills: Math.floor(Math.random() * 2000),
+            deaths: Math.floor(Math.random() * 1500),
+            assists: Math.floor(Math.random() * 3000),
+            wins: Math.floor(Math.random() * 600)
+        },
+        lane
+    };
+}
 
     // 初始化：加载数据并分类
     async function initHeroModule() {
