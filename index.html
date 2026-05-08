@@ -393,6 +393,11 @@
                 return dataDragonVersion || DATA_DRAGON_FALLBACK_VERSION;
             }
 
+            /** 从 champion.json / item.json 根字段同步版本（供国内等无法访问 Riot 时的本地数据） */
+            function setDataDragonVersion(v) {
+                if (v && typeof v === 'string') dataDragonVersion = v;
+            }
+
             // ==================== 用户登录状态管理 ====================
             let currentUser = JSON.parse(localStorage.getItem('hex_user') || 'null');
             const updateNav = () => {
@@ -587,6 +592,7 @@
                 init,
                 panels,
                 getDataDragonVersion,
+                setDataDragonVersion,
                 fetchUrlWithCorsFallback
             };
 
@@ -784,7 +790,7 @@
 })();
     // ==================== 英雄模块 ====================
 (function() {
-    const { showToast, stripHtml, commentBlock, panels, registerModule, esc, getDataDragonVersion, fetchUrlWithCorsFallback } = window.hexTech;
+    const { showToast, stripHtml, commentBlock, panels, registerModule, esc, getDataDragonVersion, setDataDragonVersion, fetchUrlWithCorsFallback } = window.hexTech;
 
     const ddDataBase = () => `https://ddragon.leagueoflegends.com/cdn/${getDataDragonVersion()}/data/zh_CN`;
     const ddImgRoot = () => `https://ddragon.leagueoflegends.com/cdn/${getDataDragonVersion()}/img`;
@@ -809,22 +815,42 @@
                 <p>当前是「本地文件」打开，浏览器通常会拦截访问 Riot 的 Data Dragon。请用本地 HTTP 打开（例如在目录下执行 <code style="color:var(--tech);">python -m http.server 8080</code> 后访问 <code style="color:var(--tech);">http://localhost:8080/</code> 对应路径）。</p></div>`;
         }
         return `<div class="hero-empty-all"><strong>未能加载英雄数据</strong>
-            <p>当前为线上页面，但未能从 Riot CDN 拉取 <code style="color:var(--tech);">champion.json</code>（常见原因：网络无法访问 <code style="color:var(--tech);">ddragon.leagueoflegends.com</code>、广告拦截、或请求被拦截）。请在 F12 →「网络」中查看 <code>champion.json</code> 是否失败。</p>
-            <p><strong>离线/内网可用方案：</strong>从 Data Dragon 下载中文版 <code style="color:var(--gold);">champion.json</code>，放入与网页同级的目录 <code style="color:var(--gold);">data/champion.json</code> 后重新部署，本站会优先尝试直连与代理，失败时自动读取该文件；头像与技能图仍使用官方 CDN 地址。</p></div>`;
+            <p>在国内网络或 GitHub Pages 上，浏览器访问 <code style="color:var(--tech);">ddragon.leagueoflegends.com</code> 及常见 CORS 代理经常失败，页面会<strong>优先读取本站同源文件</strong>（无需跨域）。</p>
+            <p><strong>推荐做法（一次配置即可）：</strong>在仓库中新建 <code style="color:var(--gold);">data/champion.json</code>（与 <code style="color:var(--gold);">index.html</code> 同级目录 <code>data</code>），放入从 Data Dragon 下载的<strong>中文版</strong>完整 <code>champion.json</code>，提交后重新部署。访问地址应为：<code style="color:var(--tech);">…/你的站点/data/champion.json</code> 能 200 打开即成功。本站会<strong>先请求该文件</strong>，并用其中的 <code>version</code> 字段对齐头像与技能图版本。</p>
+            <p>若仍走外网，请用 F12 →「网络」查看 <code>champion.json</code> 是否被拦截。</p></div>`;
     }
 
-    // 获取所有英雄
+    // 获取所有英雄（同源 data/champion.json 优先，适合 GitHub Pages / 国内无法访问 Riot 时）
     async function fetchAllChampions() {
+        const localHref = new URL('data/champion.json', window.location.href).href;
+        const applyVersion = (data) => {
+            if (data && data.version) setDataDragonVersion(data.version);
+        };
+        try {
+            const localRes = await fetch(localHref, { cache: 'no-store' });
+            if (localRes.ok) {
+                const data = await localRes.json();
+                if (data && data.data && typeof data.data === 'object') {
+                    applyVersion(data);
+                    return Object.values(data.data);
+                }
+            }
+        } catch (_) { /* 无本地文件或解析失败，继续走 CDN */ }
+
         const championUrl = `${ddDataBase()}/champion.json`;
         let res;
         try {
             res = await fetchUrlWithCorsFallback(championUrl);
         } catch (e) {
-            const local = new URL('data/champion.json', window.location.href).href;
-            res = await fetch(local);
-            if (!res.ok) throw e;
+            const localRes2 = await fetch(localHref, { cache: 'no-store' });
+            if (!localRes2.ok) throw e;
+            const data = await localRes2.json();
+            applyVersion(data);
+            if (!data || !data.data) throw e;
+            return Object.values(data.data);
         }
         const data = await res.json();
+        applyVersion(data);
         if (!data || !data.data) throw new Error('invalid champion.json');
         return Object.values(data.data);
     }
@@ -1073,26 +1099,42 @@
 })();
 // ==================== 物品模块 ====================
 (function() {
-    const { showToast, stripHtml, commentBlock, panels, registerModule, getDataDragonVersion, fetchUrlWithCorsFallback, esc } = window.hexTech;
+    const { showToast, stripHtml, commentBlock, panels, registerModule, getDataDragonVersion, setDataDragonVersion, fetchUrlWithCorsFallback, esc } = window.hexTech;
 
     const ddItemDataBase = () => `https://ddragon.leagueoflegends.com/cdn/${getDataDragonVersion()}/data/zh_CN`;
     const ddItemImg = () => `https://ddragon.leagueoflegends.com/cdn/${getDataDragonVersion()}/img`;
 
     let allItems = [];
 
-    // 获取所有可购买物品（版本与 champion.json 同源，由启动时 versions.json 自动解析）
+    // 获取所有可购买物品（同源 data/item.json 优先，逻辑与 champion 一致）
     async function fetchItems() {
+        const localHref = new URL('data/item.json', window.location.href).href;
+        const applyVersion = (data) => { if (data && data.version) setDataDragonVersion(data.version); };
+        try {
+            const localRes = await fetch(localHref, { cache: 'no-store' });
+            if (localRes.ok) {
+                const data = await localRes.json();
+                if (data && data.data && typeof data.data === 'object') {
+                    applyVersion(data);
+                    return Object.values(data.data).filter(item => item.gold.purchasable);
+                }
+            }
+        } catch (_) { /* 继续 CDN */ }
+
         const itemUrl = `${ddItemDataBase()}/item.json`;
         let res;
         try {
             res = await fetchUrlWithCorsFallback(itemUrl);
         } catch (e) {
-            const local = new URL('data/item.json', window.location.href).href;
-            res = await fetch(local);
-            if (!res.ok) throw e;
+            const localRes2 = await fetch(localHref, { cache: 'no-store' });
+            if (!localRes2.ok) throw e;
+            const data = await localRes2.json();
+            applyVersion(data);
+            if (!data || !data.data) throw e;
+            return Object.values(data.data).filter(item => item.gold.purchasable);
         }
         const data = await res.json();
-        // 过滤掉不可购买的物品（如金币、药水可能仍可购买，视需求保留）
+        applyVersion(data);
         return Object.values(data.data).filter(item => item.gold.purchasable);
     }
 
