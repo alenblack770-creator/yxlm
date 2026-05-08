@@ -294,6 +294,8 @@
             border-radius: 8px; color: var(--text2); line-height: 1.65; font-size: 0.9rem;
         }
         .hero-empty-all strong { color: var(--gold); display: block; margin-bottom: 10px; }
+        .hero-empty-all p { margin-top: 10px; }
+        .hero-empty-all p:first-of-type { margin-top: 6px; }
     </style>
 </head>
 <body>
@@ -762,10 +764,47 @@
     // 分类存储英雄数据
     let heroData = { top: [], jungle: [], mid: [], bottom: [], support: [] };
 
+    /** 直连失败时走公开 CORS 代理（GitHub Pages 等环境下常见） */
+    async function fetchUrlWithCorsFallback(url) {
+        const okRes = async (r) => {
+            if (!r || !r.ok) throw new Error(r ? String(r.status) : 'no response');
+            return r;
+        };
+        try {
+            return await okRes(await fetch(url));
+        } catch (e1) {
+            try {
+                return await okRes(await fetch('https://corsproxy.io/?' + encodeURIComponent(url)));
+            } catch (e2) {
+                return await okRes(await fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(url)));
+            }
+        }
+    }
+
+    function heroLoadFailHintHtml() {
+        const file = location.protocol === 'file:';
+        if (file) {
+            return `<div class="hero-empty-all"><strong>未能加载英雄数据</strong>
+                <p>当前是「本地文件」打开，浏览器通常会拦截访问 Riot 的 Data Dragon。请用本地 HTTP 打开（例如在目录下执行 <code style="color:var(--tech);">python -m http.server 8080</code> 后访问 <code style="color:var(--tech);">http://localhost:8080/</code> 对应路径）。</p></div>`;
+        }
+        return `<div class="hero-empty-all"><strong>未能加载英雄数据</strong>
+            <p>当前为线上页面，但未能从 Riot CDN 拉取 <code style="color:var(--tech);">champion.json</code>（常见原因：网络无法访问 <code style="color:var(--tech);">ddragon.leagueoflegends.com</code>、广告拦截、或请求被拦截）。请在 F12 →「网络」中查看 <code>champion.json</code> 是否失败。</p>
+            <p><strong>离线/内网可用方案：</strong>从 Data Dragon 下载中文版 <code style="color:var(--gold);">champion.json</code>，放入与网页同级的目录 <code style="color:var(--gold);">data/champion.json</code> 后重新部署，本站会优先尝试直连与代理，失败时自动读取该文件；头像与技能图仍使用官方 CDN 地址。</p></div>`;
+    }
+
     // 获取所有英雄
     async function fetchAllChampions() {
-        const res = await fetch(`${ddDataBase()}/champion.json`);
+        const championUrl = `${ddDataBase()}/champion.json`;
+        let res;
+        try {
+            res = await fetchUrlWithCorsFallback(championUrl);
+        } catch (e) {
+            const local = new URL('data/champion.json', window.location.href).href;
+            res = await fetch(local);
+            if (!res.ok) throw e;
+        }
         const data = await res.json();
+        if (!data || !data.data) throw new Error('invalid champion.json');
         return Object.values(data.data);
     }
 
@@ -814,11 +853,11 @@
     // 初始化：加载数据并分类
     async function initHeroModule() {
         try {
-            const vr = await fetch('https://ddragon.leagueoflegends.com/api/versions.json');
-            if (vr.ok) {
+            try {
+                const vr = await fetchUrlWithCorsFallback('https://ddragon.leagueoflegends.com/api/versions.json');
                 const arr = await vr.json();
                 if (Array.isArray(arr) && typeof arr[0] === 'string') DD_VERSION = arr[0];
-            }
+            } catch (_) { /* 使用默认 DD_VERSION */ }
             const champs = await fetchAllChampions();
             heroData = { top: [], jungle: [], mid: [], bottom: [], support: [] };
             champs.forEach(c => {
@@ -847,8 +886,7 @@
                     </div>
                 `).join('')
             : (totalHeroes === 0
-                ? `<div class="hero-empty-all"><strong>未能加载英雄数据</strong>
-                    常见原因：① 使用「文件」方式直接打开本页时，浏览器会拦截对 Data Dragon 的请求；请用本地 HTTP 服务打开（例如在桌面目录执行 <code style="color:var(--tech);">python -m http.server 8080</code> 后访问 <code style="color:var(--tech);">http://localhost:8080/英雄联盟.html</code>）。② 网络无法访问 Riot CDN。③ 控制台 (F12) 中可见具体报错。</div>`
+                ? heroLoadFailHintHtml()
                 : `<div class="hero-empty-all">当前分路「${laneNames[pos] || pos}」暂无英雄条目，请切换其他分路试试。</div>`);
         let h = `
             <div class="section-title"><span class="dot"></span>英雄档案</div>
