@@ -816,8 +816,7 @@
         }
         return `<div class="hero-empty-all"><strong>未能加载英雄数据</strong>
             <p>在国内网络或 GitHub Pages 上，浏览器访问 <code style="color:var(--tech);">ddragon.leagueoflegends.com</code> 及常见 CORS 代理经常失败，页面会<strong>优先读取本站同源文件</strong>（无需跨域）。</p>
-            <p><strong>推荐做法：</strong>在仓库 <code style="color:var(--gold);">data/champion.json</code> 中放入 Data Dragon 的<strong>完整版</strong>中文版数据（单文件通常约 <strong>0.8MB～2MB+</strong>）。每个英雄对象内必须含 <code>skins</code>、<code>spells</code> 等字段；若只有几百 KB、且没有 <code>skins</code>，那是<strong>精简/列表用 JSON</strong>，本页无法正确解析。正确下载地址示例：<code style="color:var(--tech);">https://ddragon.leagueoflegends.com/cdn/版本号/data/zh_CN/champion.json</code>（不要用 champion 列表接口生成的瘦身文件）。</p>
-            <p>部署后访问 <code style="color:var(--tech);">…/data/champion.json</code> 应返回 200；页面会读取其中的 <code>version</code> 对齐资源版本。</p>
+            <p><strong>说明：</strong>官方总表 <code>champion.json</code> 目前体积约 <strong>190KB</strong> 属正常（仅含列表字段）。技能、皮肤、传记等在单英雄文件 <code>…/data/zh_CN/champion/英雄id.json</code> 中；本页会在你点开英雄时自动请求该文件。若列表也加载失败，可将总表放到仓库 <code style="color:var(--gold);">data/champion.json</code> 同源部署。</p>
             <p>若仍走外网，请用 F12 →「网络」查看 <code>champion.json</code> 是否被拦截。</p></div>`;
     }
 
@@ -909,11 +908,6 @@
     async function initHeroModule() {
         try {
             const champs = await fetchAllChampions();
-            const sample = champs.find(x => x && x.id);
-            if (sample && !Array.isArray(sample.skins) && !Array.isArray(sample.spells)) {
-                console.warn('champion.json 疑似精简版（无 skins/spells），请换用 Data Dragon 完整 champion.json');
-                showToast('champion.json 不是完整版，请换官方 data/zh_CN/champion.json');
-            }
             heroData = { top: [], jungle: [], mid: [], bottom: [], support: [] };
             champs.forEach(c => {
                 if (!c || !c.name || !c.id) return;
@@ -978,21 +972,64 @@
 
         // 点击英雄图标展示详情
         document.querySelectorAll('#heroIconList .icon-item').forEach(el => {
-            el.addEventListener('click', () => {
+            el.addEventListener('click', async () => {
                 document.querySelectorAll('#heroIconList .icon-item').forEach(x => x.classList.remove('selected'));
                 el.classList.add('selected');
                 const hr = list.find(x => x.name === el.dataset.name);
-                if (hr) renderHeroDetail(hr, pos);
+                if (hr) await renderHeroDetail(hr, pos);
             });
         });
     }
 
+    /** 总表 champion.json 无 spells/skins 时，按需拉取单英雄 JSON（与官方 Data Dragon 现行结构一致） */
+    async function enrichChampionFromDetailJson(hr) {
+        if (hr._ddragonDetailLoaded || !hr.id) return;
+        const applyFull = (full) => {
+            if (!full) return;
+            hr.lore = full.lore || full.blurb || hr.lore || '';
+            const spells = Array.isArray(full.spells) ? full.spells : [];
+            hr.skills = spells.map(spell => ({
+                n: spell.name || '',
+                i: spell.image && spell.image.full ? `${ddImgRoot()}/spell/${spell.image.full}` : '',
+                d: stripHtml(spell.description || '').substring(0, 80)
+            }));
+            let skins = Array.isArray(full.skins) ? full.skins : [];
+            if (!skins.length) skins = [{ name: 'default', num: 0 }];
+            hr.skins = skins.map(skin => ({
+                n: skin.name === 'default' ? hr.name : (skin.name || hr.name),
+                num: skin.num != null ? skin.num : 0,
+                t: `https://ddragon.leagueoflegends.com/cdn/img/champion/loading/${hr.id}_${skin.num}.jpg`,
+                f: `https://ddragon.leagueoflegends.com/cdn/img/champion/splash/${hr.id}_${skin.num}.jpg`
+            }));
+            hr._ddragonDetailLoaded = true;
+        };
+        const localHref = new URL(`data/champion/${hr.id}.json`, window.location.href).href;
+        const remoteUrl = `${ddDataBase()}/champion/${encodeURIComponent(hr.id)}.json`;
+        try {
+            const res = await fetchUrlWithCorsFallback(remoteUrl);
+            const json = await res.json();
+            applyFull(json.data && json.data[hr.id]);
+        } catch (e) {
+            try {
+                const lr = await fetch(localHref, { cache: 'no-store' });
+                if (lr.ok) {
+                    const json = await lr.json();
+                    applyFull(json.data && json.data[hr.id]);
+                }
+            } catch (_) { /* 忽略 */ }
+        }
+    }
+
     // 渲染英雄详情
-    function renderHeroDetail(hr, pos) {
+    async function renderHeroDetail(hr, pos) {
+        const root = document.getElementById('heroDetail');
+        root.innerHTML = `<div class="detail-card"><div class="detail-content"><div class="loading" style="padding:32px;">正在加载完整档案…</div></div></div>`;
+        await enrichChampionFromDetailJson(hr);
+
         if (heroChart) { heroChart.destroy(); heroChart = null; }
         const sp = (hr.style / 5) * 100;
         const pn = pos === 'top' ? '上路' : pos === 'jungle' ? '打野' : pos === 'mid' ? '中路' : pos === 'bottom' ? '下路' : '辅助';
-        document.getElementById('heroDetail').innerHTML = `
+        root.innerHTML = `
         <div class="detail-card">
             <div class="detail-bg" style="background-image:url('${hr.skins[0]?.f||''}');"></div>
             <div class="detail-content">
@@ -1021,7 +1058,7 @@
         bindDetailTabs(hr);
 
         // 初始化评论
-        commentBlock(document.getElementById('heroDetail'), `hex_hero_${hr.name}`);
+        commentBlock(root, `hex_hero_${hr.name}`);
     }
 
     // 总览面板
