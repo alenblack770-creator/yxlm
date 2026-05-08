@@ -1,0 +1,1369 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="hextech">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>海克斯科技 · 数据中枢</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --bg: #0a0b12;
+            --card: #141624;
+            --border: #2e3140;
+            --text: #e9eaf0;
+            --text2: #9da3b8;
+            --muted: #6b7185;
+            --gold: #f0a400;
+            --tech: #0ac8b8;
+            --magic: #c89b3c;
+            --red: #e84057;
+            --font: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            --font-title: 'Impact', 'PingFang SC', sans-serif;
+            --transition: 0.2s;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: var(--font);
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            background-image: radial-gradient(circle at 20% 10%, rgba(60, 140, 254, 0.06) 0%, transparent 45%),
+                radial-gradient(circle at 80% 70%, rgba(200, 155, 60, 0.05) 0%, transparent 50%);
+            background-attachment: fixed;
+        }
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: var(--bg); }
+        ::-webkit-scrollbar-thumb { background: #3e4a60; border-radius: 3px; }
+
+        .navbar {
+            position: sticky; top: 0; z-index: 100;
+            background: rgba(10, 11, 18, 0.9); backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border);
+            padding: 0 20px; height: 60px;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .nav-left { display: flex; align-items: center; gap: 24px; }
+        .nav-brand {
+            display: flex; align-items: center; gap: 8px;
+            font-weight: 800; font-size: 1.1rem; letter-spacing: 0.03em;
+            text-transform: uppercase; color: #b4cbd9;
+            font-family: var(--font-title);
+        }
+        .nav-brand .logo {
+            width: 32px; height: 32px;
+            background: linear-gradient(145deg, #1f2235, #0e0f1a);
+            border: 1px solid var(--magic); border-radius: 6px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.1rem; color: var(--gold);
+        }
+        .nav-links { display: flex; gap: 2px; flex-wrap: wrap; }
+        .nav-link {
+            text-decoration: none; color: var(--text2);
+            font-size: 0.8rem; font-weight: 600;
+            padding: 5px 12px; border-radius: 4px;
+            transition: var(--transition);
+            background: transparent; border: 1px solid transparent;
+            cursor: pointer;
+        }
+        .nav-link:hover, .nav-link.active {
+            color: var(--gold); background: rgba(200, 155, 60, 0.08);
+            border-color: rgba(200, 155, 60, 0.4);
+        }
+        .nav-right { display: flex; align-items: center; gap: 10px; position: relative; }
+        .login-btn {
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: 4px; padding: 7px 14px;
+            color: var(--text2); cursor: pointer; font-weight: 600;
+            font-size: 0.8rem; display: flex; align-items: center; gap: 5px;
+        }
+        .login-btn:hover { border-color: var(--tech); color: var(--tech); }
+        .user-toggle {
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: 4px; padding: 7px 14px;
+            color: var(--gold); cursor: pointer; font-weight: 600;
+            display: flex; align-items: center; gap: 5px;
+        }
+        .logout-dropdown {
+            display: none; position: absolute; top: 110%; right: 0;
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: 4px; padding: 6px; z-index: 10;
+        }
+        .logout-dropdown.show { display: block; }
+        .logout-btn {
+            background: transparent; border: none;
+            color: var(--text); cursor: pointer; font-weight: 600;
+        }
+        .user-menu { position: relative; }
+
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.85); z-index: 200;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .modal-box {
+            background: var(--card); border: 2px solid var(--magic);
+            border-radius: 12px; padding: 20px; max-width: 380px; width: 90%;
+        }
+        .modal-close { float: right; font-size: 1.8rem; color: var(--gold); cursor: pointer; }
+
+        .main-container { max-width: 1300px; margin: 0 auto; padding: 24px 16px 50px; }
+        .section-title {
+            font-size: 1.2rem; font-weight: 700; color: #b4cbd9;
+            display: flex; align-items: center; gap: 8px;
+            font-family: var(--font-title); text-transform: uppercase;
+            margin-bottom: 20px;
+        }
+        .section-title .dot {
+            width: 8px; height: 8px; background: var(--gold);
+            border-radius: 50%; box-shadow: 0 0 12px var(--gold);
+        }
+        .panel-hidden { display: none !important; }
+        .tabs-row { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+        .tab-btn {
+            padding: 8px 20px; background: var(--card);
+            border: 1px solid var(--border); border-radius: 4px;
+            color: var(--text2); font-weight: 700; font-size: 0.8rem;
+            text-transform: uppercase; cursor: pointer;
+            font-family: var(--font-title);
+        }
+        .tab-btn.active {
+            background: linear-gradient(180deg, #2a2c3a, #1a1c28);
+            border-color: var(--magic); color: var(--gold);
+            box-shadow: 0 0 16px rgba(200, 155, 60, 0.3);
+        }
+        .search-box input {
+            padding: 9px; background: #11131e;
+            border: 1px solid var(--border); border-radius: 4px;
+            color: var(--text); outline: none; margin-bottom: 16px; width: 200px;
+        }
+        .icon-list { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 24px; }
+        .icon-item {
+            width: 85px; height: 100px; background: var(--card);
+            border: 1px solid var(--border); border-radius: 8px;
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: center; gap: 6px; cursor: pointer;
+            transition: all var(--transition);
+        }
+        .icon-item:hover {
+            border-color: var(--tech); box-shadow: 0 0 14px rgba(10, 200, 184, 0.2);
+            transform: translateY(-2px);
+        }
+        .icon-item .emoji { font-size: 2rem; }
+        .icon-item .icon-img { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; }
+        .icon-item .label { font-size: 0.75rem; font-weight: 600; color: var(--text2); text-align: center; }
+        .icon-item.selected {
+            border-color: var(--gold); box-shadow: 0 0 18px rgba(200, 155, 60, 0.4);
+            background: linear-gradient(180deg, #2a2c3a, #1a1c28);
+        }
+        .detail-card {
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: 8px; overflow: hidden;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+            position: relative; margin-top: 16px;
+        }
+        .detail-bg {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            opacity: 0.1; pointer-events: none; z-index: 0;
+            background-size: cover; background-position: center;
+        }
+        .detail-content { position: relative; z-index: 1; padding: 20px; }
+        .hero-header { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+        .hero-icon {
+            width: 48px; height: 48px; border-radius: 50%;
+            border: 2px solid var(--magic);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.6rem; background: rgba(0, 0, 0, 0.5); overflow: hidden;
+        }
+        .hero-icon img { width: 100%; height: 100%; object-fit: cover; }
+        .hero-name { font-size: 1.6rem; font-weight: 800; font-family: var(--font-title); }
+        .detail-tabs { display: flex; gap: 6px; margin: 16px 0; border-top: 1px solid var(--border); padding-top: 14px; }
+        .detail-tab {
+            padding: 6px 16px; background: transparent;
+            border: 1px solid var(--border); border-radius: 4px;
+            color: var(--text2); cursor: pointer; font-weight: 600; font-size: 0.8rem;
+        }
+        .detail-tab.active {
+            background: rgba(200, 155, 60, 0.15);
+            border-color: var(--magic); color: var(--gold);
+        }
+        .overview-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 18px; align-items: start;
+        }
+        @media (max-width: 700px) { .overview-grid { grid-template-columns: 1fr; } }
+        .attr-box {
+            background: rgba(0, 0, 0, 0.3); border: 1px solid var(--border);
+            border-radius: 6px; padding: 12px 14px; margin-bottom: 12px;
+        }
+        .attr-label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; margin-bottom: 4px; }
+        .style-bar-wrap { display: flex; align-items: center; gap: 6px; }
+        .style-bar-legend {
+            display: flex; justify-content: space-between;
+            font-size: 0.65rem; color: var(--muted); margin-top: 6px;
+        }
+        .style-bar { flex: 1; height: 8px; background: #1a1c28; border-radius: 4px; overflow: hidden; }
+        .style-fill { height: 100%; background: var(--tech); border-radius: 4px; }
+        .radar-box {
+            background: rgba(0, 0, 0, 0.3); border: 1px solid var(--border);
+            border-radius: 8px; padding: 10px; display: flex; justify-content: center;
+        }
+        .lore-box {
+            margin-top: 16px; background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border); border-radius: 6px;
+            padding: 14px 18px; font-style: italic; color: var(--text2); line-height: 1.6;
+        }
+        .detail-pane { min-height: 100px; }
+        .skill-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 10px; }
+        .skill-item {
+            background: rgba(0, 0, 0, 0.3); border: 1px solid var(--border);
+            border-radius: 6px; padding: 10px; text-align: center;
+        }
+        .skill-icon-slot {
+            display: flex; align-items: center; justify-content: center;
+            min-height: 2.75rem; margin-bottom: 6px;
+        }
+        .skill-icon-slot img {
+            width: 48px; height: 48px; object-fit: contain;
+            filter: drop-shadow(0 0 6px rgba(10, 200, 184, 0.25));
+        }
+        .skin-grid { display: flex; flex-wrap: wrap; gap: 12px; }
+        .skin-thumb {
+            width: 90px; height: 120px; background: rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--border); border-radius: 6px;
+            cursor: pointer; display: flex; flex-direction: column;
+            align-items: stretch; overflow: hidden; position: relative;
+        }
+        .skin-thumb img {
+            flex: 1 1 auto; min-height: 0; width: 100%;
+            object-fit: cover; border-radius: 6px 6px 0 0;
+        }
+        .skin-thumb .skin-label {
+            flex: 0 0 auto; font-size: 0.65rem; color: var(--text2);
+            text-align: center; padding: 4px 4px 6px; line-height: 1.2;
+            background: linear-gradient(180deg, rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.85));
+        }
+        .comment-form { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+        .comment-form textarea {
+            width: 100%; padding: 10px; background: #11131e;
+            border: 1px solid var(--border); border-radius: 4px;
+            color: var(--text); resize: vertical; min-height: 65px;
+        }
+        .btn-submit {
+            align-self: flex-end; padding: 8px 22px;
+            background: linear-gradient(180deg, #2d2f3c, #1a1c28);
+            color: var(--gold); border: 1px solid var(--magic);
+            border-radius: 4px; font-weight: 700; cursor: pointer;
+            text-transform: uppercase; font-family: var(--font-title);
+        }
+        .comment-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+        .comment-item { background: #11131e; padding: 10px 12px; border-radius: 4px; border: 1px solid var(--border); }
+        .comment-actions { display: flex; gap: 10px; margin-top: 6px; }
+        .action-btn { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 0.8rem; }
+        .action-btn.liked { color: var(--tech); }
+        .action-btn.disliked { color: var(--red); }
+        .reply-box { margin-top: 6px; padding: 6px; background: rgba(0, 0, 0, 0.2); border-radius: 4px; }
+        .reply-box input { width: 100%; background: #11131e; border: 1px solid var(--border); color: var(--text); padding: 5px; border-radius: 3px; }
+        .rune-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+        .rune-item { background: #11131e; border: 1px solid var(--border); border-radius: 4px; padding: 8px 10px; display: flex; align-items: center; justify-content: space-between; }
+        .map-container {
+            position: relative; width: 100%; max-width: 900px; margin: 0 auto;
+            background-size: cover; background-position: center;
+            border: 2px solid var(--magic); border-radius: 8px;
+            aspect-ratio: 16/9;
+        }
+        .map-marker {
+            position: absolute; width: 16px; height: 16px;
+            background: var(--gold); border: 2px solid #000;
+            border-radius: 50%; transform: translate(-50%, -50%);
+            cursor: pointer; box-shadow: 0 0 8px var(--gold);
+            transition: transform 0.2s;
+        }
+        .map-marker:hover { transform: translate(-50%, -50%) scale(1.3); }
+        .toast {
+            position: fixed; top: 20px; right: 20px;
+            background: #1c1e2c; color: var(--gold);
+            padding: 10px 20px; border-radius: 4px;
+            border: 1px solid var(--magic); z-index: 999;
+            opacity: 0; transition: 0.3s;
+        }
+        .toast.show { opacity: 1; }
+        .footer { text-align: center; padding: 18px; color: var(--muted); border-top: 1px solid var(--border); margin-top: 24px; }
+        .loading { text-align: center; padding: 40px; color: var(--muted); font-size: 1.2rem; }
+        .hero-empty-all {
+            width: 100%; max-width: 640px; padding: 28px 20px;
+            background: rgba(0, 0, 0, 0.35); border: 1px solid var(--border);
+            border-radius: 8px; color: var(--text2); line-height: 1.65; font-size: 0.9rem;
+        }
+        .hero-empty-all strong { color: var(--gold); display: block; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-left">
+            <div class="nav-brand"><span class="logo">⚙️</span><span>海克斯科技·数据中枢</span></div>
+            <div class="nav-links" id="mainNav">
+                <a class="nav-link active" data-panel="rune">符文</a>
+                <a class="nav-link" data-panel="hero">英雄</a>
+                <a class="nav-link" data-panel="item">物品</a>
+                <a class="nav-link" data-panel="spell">召唤师技能</a>
+                <a class="nav-link" data-panel="map">地图资源</a>
+                <a class="nav-link" data-panel="tft">云顶之弈</a>
+            </div>
+        </div>
+        <div class="nav-right" id="navUserArea">
+            <button class="login-btn" id="loginBtn">👤 登录</button>
+        </div>
+    </nav>
+
+    <div class="main-container">
+        <div id="panel-rune" class="panel-content"></div>
+        <div id="panel-hero" class="panel-content panel-hidden"></div>
+        <div id="panel-item" class="panel-content panel-hidden"></div>
+        <div id="panel-spell" class="panel-content panel-hidden"></div>
+        <div id="panel-map" class="panel-content panel-hidden"></div>
+        <div id="panel-tft" class="panel-content panel-hidden"></div>
+    </div>
+
+    <div class="modal-overlay" id="loginModal" style="display:none;">
+        <div class="modal-box">
+            <span class="modal-close" id="closeLogin">✕</span>
+            <h3 style="color:var(--gold);margin-bottom:14px;">🔐 召唤师登录</h3>
+            <input type="text" id="loginId" class="search-box" style="width:100%;" placeholder="ID (至少2字符)">
+            <input type="password" id="loginPw" class="search-box" style="width:100%;" placeholder="密码 (至少6字符)">
+            <button id="loginSubmit" class="btn-submit" style="width:100%;margin-top:8px;">登录</button>
+            <div id="loginError" style="color:var(--red);font-size:0.75rem;margin-top:6px;"></div>
+        </div>
+    </div>
+    <div class="toast" id="toast"></div>
+    <div class="footer">© 2024 海克斯科技数据中枢 · 荣耀归于召唤师</div>
+
+    <script>
+        (function() {
+            // ==================== 全局工具函数 ====================
+            const toast = document.getElementById('toast');
+            let tt;
+            const showToast = m => {
+                clearTimeout(tt);
+                toast.textContent = m;
+                toast.classList.add('show');
+                tt = setTimeout(() => toast.classList.remove('show'), 2000);
+            };
+            const esc = s => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
+            const stripHtml = html => {
+                const d = document.createElement('div');
+                d.innerHTML = html;
+                return d.textContent || d.innerText || '';
+            };
+
+            // ==================== 用户登录状态管理 ====================
+            let currentUser = JSON.parse(localStorage.getItem('hex_user') || 'null');
+            const updateNav = () => {
+                const area = document.getElementById('navUserArea');
+                if (currentUser) {
+                    area.innerHTML = `<div class="user-menu">
+                        <button class="user-toggle">👤 ${esc(currentUser.name)}</button>
+                        <div class="logout-dropdown" id="logoutDD">
+                            <button class="logout-btn" id="logoutBtn">退出</button>
+                        </div>
+                    </div>`;
+                    document.querySelector('.user-toggle').addEventListener('click', () => {
+                        document.getElementById('logoutDD').classList.toggle('show');
+                    });
+                    document.getElementById('logoutBtn').addEventListener('click', () => {
+                        currentUser = null;
+                        localStorage.removeItem('hex_user');
+                        updateNav();
+                        showToast('已退出');
+                    });
+                } else {
+                    area.innerHTML = '<button class="login-btn" id="loginBtn">👤 登录</button>';
+                    document.getElementById('loginBtn').addEventListener('click', () => {
+                        document.getElementById('loginModal').style.display = 'flex';
+                    });
+                }
+            };
+            updateNav();
+
+            document.getElementById('closeLogin').onclick = () => {
+                document.getElementById('loginModal').style.display = 'none';
+            };
+            document.getElementById('loginSubmit').onclick = () => {
+                const id = document.getElementById('loginId').value.trim();
+                const pw = document.getElementById('loginPw').value;
+                if (id.length < 2) return document.getElementById('loginError').textContent = 'ID至少2字符';
+                if (pw.length < 6) return document.getElementById('loginError').textContent = '密码至少6字符';
+                currentUser = { name: id };
+                localStorage.setItem('hex_user', JSON.stringify(currentUser));
+                updateNav();
+                document.getElementById('loginModal').style.display = 'none';
+                showToast('欢迎，' + id);
+            };
+
+            // ==================== 评论系统 ====================
+            function commentBlock(container, key) {
+                const list = container.querySelector('.comment-list');
+                const empty = container.querySelector('.empty-comments');
+                const form = container.querySelector('.comment-form');
+                const load = () => {
+                    const d = JSON.parse(localStorage.getItem(key) || '[]');
+                    list.innerHTML = '';
+                    if (!d.length) { if (empty) empty.style.display = 'block'; return; }
+                    if (empty) empty.style.display = 'none';
+                    d.forEach((c, i) => {
+                        const li = document.createElement('li');
+                        li.className = 'comment-item';
+                        li.innerHTML = `
+                            <div><strong style="color:var(--tech)">${esc(c.user)}</strong> <small>${new Date(c.time).toLocaleString()}</small></div>
+                            <div>${esc(c.text)}</div>
+                            <div class="comment-actions">
+                                <button class="action-btn like-btn ${(c.likes||[]).includes(currentUser?.name)?'liked':''}">👍 ${c.like||0}</button>
+                                <button class="action-btn dislike-btn ${(c.dislikes||[]).includes(currentUser?.name)?'disliked':''}">👎 ${c.dislike||0}</button>
+                                <button class="action-btn reply-toggle">💬 回复</button>
+                            </div>
+                            <div class="reply-box" style="display:none">
+                                <input class="reply-input" placeholder="回复...">
+                                <button class="reply-send" style="margin-top:4px;">发送</button>
+                            </div>
+                            <div>${(c.replies||[]).map(r=>`<div style="padding:3px 6px;margin:2px 0;background:rgba(255,255,255,0.03);font-size:0.8rem;"><strong>${esc(r.user)}</strong>: ${esc(r.text)}</div>`).join('')}</div>`;
+                        list.appendChild(li);
+                    });
+                };
+                load();
+                form?.addEventListener('submit', e => {
+                    e.preventDefault();
+                    if (!currentUser) return showToast('请先登录');
+                    const t = form.querySelector('textarea').value.trim();
+                    if (!t) return;
+                    const d = JSON.parse(localStorage.getItem(key) || '[]');
+                    d.push({ user: currentUser.name, text: t, time: Date.now(), like: 0, dislike: 0, likes: [], dislikes: [], replies: [] });
+                    localStorage.setItem(key, JSON.stringify(d));
+                    form.reset();
+                    load();
+                });
+                container.addEventListener('click', function(e) {
+                    const btn = e.target.closest('button');
+                    if (!btn) return;
+                    const li = btn.closest('li');
+                    const i = Array.from(list.children).indexOf(li);
+                    const d = JSON.parse(localStorage.getItem(key) || '[]');
+                    if (!d[i]) return;
+                    if (!currentUser) return showToast('请先登录');
+                    if (btn.classList.contains('like-btn')) {
+                        const a = d[i].likes || [];
+                        const idx = a.indexOf(currentUser.name);
+                        if (idx > -1) { a.splice(idx, 1); d[i].like--; }
+                        else { a.push(currentUser.name); d[i].like++; }
+                        d[i].likes = a;
+                    } else if (btn.classList.contains('dislike-btn')) {
+                        const a = d[i].dislikes || [];
+                        const idx = a.indexOf(currentUser.name);
+                        if (idx > -1) { a.splice(idx, 1); d[i].dislike--; }
+                        else { a.push(currentUser.name); d[i].dislike++; }
+                        d[i].dislikes = a;
+                    } else if (btn.classList.contains('reply-toggle')) {
+                        li.querySelector('.reply-box').style.display = 'block';
+                    } else if (btn.classList.contains('reply-send')) {
+                        const inp = li.querySelector('.reply-input');
+                        const txt = inp.value.trim();
+                        if (!txt) return;
+                        d[i].replies = d[i].replies || [];
+                        d[i].replies.push({ user: currentUser.name, text: txt });
+                    }
+                    localStorage.setItem(key, JSON.stringify(d));
+                    load();
+                });
+            }
+
+            // ==================== 面板切换 ====================
+            const panels = {
+                rune: document.getElementById('panel-rune'),
+                hero: document.getElementById('panel-hero'),
+                item: document.getElementById('panel-item'),
+                spell: document.getElementById('panel-spell'),
+                map: document.getElementById('panel-map'),
+                tft: document.getElementById('panel-tft')
+            };
+            // ==================== 模块集合 ====================
+            const modules = {};
+
+            // 注册模块
+            function registerModule(name, initFn, renderFn) {
+                modules[name] = { init: initFn, render: renderFn };
+            }
+
+            /** 各面板是否已执行过首次 render（懒加载） */
+            const panelRendered = new Set();
+
+            // ==================== 初始化 ====================
+            async function init() {
+                // 先初始化所有模块
+                for (const [name, mod] of Object.entries(modules)) {
+                    if (mod.init) await mod.init();
+                }
+                // 默认渲染符文面板
+                if (modules['rune'] && modules['rune'].render) {
+                    modules['rune'].render();
+                    panelRendered.add('rune');
+                }
+                // 导航：切换面板 + 首次进入某面板时执行 render（避免「先点英雄、数据未就绪」时 once 已消耗导致永远不渲染）
+                document.querySelectorAll('#mainNav .nav-link').forEach(l => {
+                    l.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        const panelName = this.dataset.panel;
+                        Object.values(panels).forEach(p => p.classList.add('panel-hidden'));
+                        panels[panelName].classList.remove('panel-hidden');
+                        document.querySelectorAll('#mainNav .nav-link').forEach(x => x.classList.remove('active'));
+                        this.classList.add('active');
+                        const mod = modules[panelName];
+                        if (!mod || !mod.render) return;
+                        // 英雄依赖外网接口，每次点进「英雄」都重新渲染，便于失败后重试；其余面板仍懒加载
+                        if (panelName === 'hero') {
+                            mod.render();
+                        } else if (!panelRendered.has(panelName)) {
+                            panelRendered.add(panelName);
+                            mod.render();
+                        }
+                    });
+                });
+                // 若在 await 数据期间已切换到非符文面板，补一次渲染
+                const activePanel = document.querySelector('#mainNav .nav-link.active')?.dataset.panel;
+                const activeMod = activePanel && modules[activePanel];
+                if (activeMod && activeMod.render) {
+                    if (activePanel === 'hero') activeMod.render();
+                    else if (!panelRendered.has(activePanel)) {
+                        panelRendered.add(activePanel);
+                        activeMod.render();
+                    }
+                }
+            }
+
+            // 暴露接口到全局
+            window.hexTech = {
+                showToast,
+                esc,
+                stripHtml,
+                currentUser,
+                commentBlock,
+                registerModule,
+                init,
+                panels
+            };
+
+            // ==================== 模块加载区域 ====================
+            // 请将后续六个模块的代码依次粘贴在此行下方
+// ==================== 符文模块 ====================
+(function() {
+    const runeData = {
+        precision: {
+            name: '精密', icon: '🎯',
+            levels: {
+                '基石符文': [
+                    { name: '强攻', pick: '24%', win: '52%' },
+                    { name: '致命节奏', pick: '31%', win: '50%' },
+                    { name: '迅捷步伐', pick: '19%', win: '49%' },
+                    { name: '征服者', pick: '26%', win: '53%' }
+                ],
+                '高级符文': [
+                    { name: '吸收生命力', pick: '19%', win: '47%' },
+                    { name: '凯旋', pick: '38%', win: '51%' },
+                    { name: '气定神闲', pick: '32%', win: '50%' }
+                ],
+                '符文一': [
+                    { name: '传说：新欢', pick: '22%', win: '51%' },
+                    { name: '传说：急速', pick: '28%', win: '48%' },
+                    { name: '传说：血统', pick: '40%', win: '53%' }
+                ],
+                '符文二': [
+                    { name: '致命一击', pick: '40%', win: '53%' },
+                    { name: '砍倒', pick: '19%', win: '46%' },
+                    { name: '坚毅不倒', pick: '31%', win: '49%' }
+                ]
+            }
+        },
+        domination: {
+            name: '主宰', icon: '🗡️',
+            levels: {
+                '基石符文': [
+                    { name: '电刑', pick: '22%', win: '49%' },
+                    { name: '黑暗收割', pick: '42%', win: '52%' },
+                    { name: '丛刃', pick: '15%', win: '48%' }
+                ],
+                '高级符文': [
+                    { name: '恶意中伤', pick: '33%', win: '51%' },
+                    { name: '血之滋味', pick: '40%', win: '52%' },
+                    { name: '猛然冲击', pick: '28%', win: '49%' }
+                ],
+                '符文一': [
+                    { name: '第六感', pick: '22%', win: '48%' },
+                    { name: '可怖纪念品', pick: '16%', win: '46%' },
+                    { name: '深入守卫', pick: '29%', win: '51%' }
+                ],
+                '符文二': [
+                    { name: '寻宝猎人', pick: '33%', win: '52%' },
+                    { name: '无情猎手', pick: '24%', win: '49%' },
+                    { name: '终极猎人', pick: '30%', win: '50%' }
+                ]
+            }
+        },
+        sorcery: {
+            name: '巫术', icon: '✨',
+            levels: {
+                '基石符文': [
+                    { name: '艾黎', pick: '23%', win: '50%' },
+                    { name: '彗星', pick: '35%', win: '51%' },
+                    { name: '风暴狂涌', pick: '28%', win: '47%' },
+                    { name: '冥火之触', pick: '14%', win: '47%' }
+                ],
+                '高级符文': [
+                    { name: '公理秘术', pick: '29%', win: '51%' },
+                    { name: '法力流系带', pick: '43%', win: '54%' },
+                    { name: '灵光披风', pick: '28%', win: '48%' }
+                ],
+                '符文一': [
+                    { name: '超然', pick: '32%', win: '49%' },
+                    { name: '迅捷', pick: '30%', win: '48%' },
+                    { name: '绝对专注', pick: '39%', win: '52%' }
+                ],
+                '符文二': [
+                    { name: '焦灼', pick: '29%', win: '46%' },
+                    { name: '水上行走', pick: '22%', win: '50%' },
+                    { name: '风暴聚集', pick: '49%', win: '54%' }
+                ]
+            }
+        },
+        resolve: {
+            name: '坚决', icon: '🛡️',
+            levels: {
+                '基石符文': [
+                    { name: '不灭之握', pick: '29%', win: '52%' },
+                    { name: '余震', pick: '34%', win: '51%' },
+                    { name: '守护者', pick: '20%', win: '48%' }
+                ],
+                '高级符文': [
+                    { name: '爆破', pick: '36%', win: '52%' },
+                    { name: '生命源泉', pick: '24%', win: '47%' },
+                    { name: '护盾猛击', pick: '29%', win: '53%' }
+                ],
+                '符文一': [
+                    { name: '复苏之风', pick: '33%', win: '50%' },
+                    { name: '骸骨镀层', pick: '43%', win: '55%' },
+                    { name: '调节', pick: '25%', win: '49%' }
+                ],
+                '符文二': [
+                    { name: '复苏', pick: '34%', win: '52%' },
+                    { name: '坚定', pick: '27%', win: '48%' },
+                    { name: '过度生长', pick: '39%', win: '54%' }
+                ]
+            }
+        },
+        inspiration: {
+            name: '启迪', icon: '💡',
+            levels: {
+                '基石符文': [
+                    { name: '冰川增幅', pick: '19%', win: '48%' },
+                    { name: '启封秘籍', pick: '11%', win: '44%' },
+                    { name: '先攻', pick: '33%', win: '50%' }
+                ],
+                '高级符文': [
+                    { name: '海克斯闪现', pick: '12%', win: '41%' },
+                    { name: '神奇之鞋', pick: '44%', win: '53%' },
+                    { name: '返现', pick: '26%', win: '49%' }
+                ],
+                '符文一': [
+                    { name: '三重补药', pick: '20%', win: '46%' },
+                    { name: '时间扭曲补药', pick: '39%', win: '52%' },
+                    { name: '饼干配送', pick: '30%', win: '50%' }
+                ],
+                '符文二': [
+                    { name: '星界洞悉', pick: '33%', win: '51%' },
+                    { name: '行进速率', pick: '13%', win: '44%' },
+                    { name: '多面手', pick: '28%', win: '48%' }
+                ]
+            }
+        },
+        minor: {
+            name: '小符文', icon: '🔹',
+            levels: {
+                '符文一': [
+                    { name: '适应之力', pick: '40%', win: '51%' },
+                    { name: '攻击速度', pick: '34%', win: '49%' },
+                    { name: '技能急速', pick: '26%', win: '48%' }
+                ],
+                '符文二': [
+                    { name: '适应之力', pick: '38%', win: '51%' },
+                    { name: '移动速度', pick: '30%', win: '48%' },
+                    { name: '成长生命值', pick: '32%', win: '52%' }
+                ],
+                '符文三': [
+                    { name: '生命值', pick: '35%', win: '52%' },
+                    { name: '韧性与减速抗性', pick: '23%', win: '47%' },
+                    { name: '成长生命值', pick: '42%', win: '53%' }
+                ]
+            }
+        }
+    };
+
+    function renderRune(cat) {
+        const d = runeData[cat];
+        const panel = window.hexTech.panels.rune;
+        let h = `<div class="section-title"><span class="dot"></span>符文数据</div>`;
+        h += `<div class="tabs-row" id="runeTabs">`;
+        Object.keys(runeData).forEach(k => {
+            h += `<button class="tab-btn ${k===cat?'active':''}" data-rune="${k}">${runeData[k].name}</button>`;
+        });
+        h += `</div>`;
+        h += `<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:18px;box-shadow:0 8px 20px rgba(0,0,0,0.5);">`;
+        h += `<div style="font-size:1.3rem;font-weight:800;color:var(--gold);margin-bottom:14px;">${d.icon} ${d.name}</div>`;
+        for (const [lv, runes] of Object.entries(d.levels)) {
+            h += `<div style="margin-bottom:14px;">`;
+            h += `<div style="font-size:0.75rem;color:var(--muted);border-left:3px solid var(--magic);padding-left:10px;margin-bottom:6px;">${lv}</div>`;
+            h += `<div class="rune-grid">`;
+            runes.forEach(r => {
+                h += `<div class="rune-item"><span>${r.name}</span><span><span style="color:var(--tech);font-size:0.75rem;">${r.pick}</span><span style="color:var(--muted);font-size:0.7rem;margin-left:4px;">${r.win}</span></span></div>`;
+            });
+            h += `</div></div>`;
+        }
+        h += `<div style="border-top:1px solid var(--border);padding-top:14px;margin-top:14px;">`;
+        h += `<strong>💬 ${d.name} 讨论</strong>`;
+        h += `<form class="comment-form"><textarea placeholder="分享见解..."></textarea><button type="submit" class="btn-submit">发布</button></form>`;
+        h += `<ul class="comment-list"></ul><div class="empty-comments" style="text-align:center;color:var(--muted);">暂无讨论</div>`;
+        h += `</div></div>`;
+        panel.innerHTML = h;
+        window.hexTech.commentBlock(panel, `hex_rune_${cat}`);
+        document.querySelectorAll('#runeTabs .tab-btn').forEach(b => {
+            b.addEventListener('click', () => renderRune(b.dataset.rune));
+        });
+    }
+
+    // 注册模块：无异步初始化，默认显示精密系
+    window.hexTech.registerModule('rune',
+        async function init() {},
+        function render() { renderRune('precision'); }
+    );
+})();
+    // ==================== 英雄模块 ====================
+(function() {
+    const { showToast, stripHtml, commentBlock, panels, registerModule, esc } = window.hexTech;
+
+    // Data Dragon：先取最新版本号，避免旧版本 CDN 404；路径随 DD_VERSION 变化
+    let DD_VERSION = '15.1.1';
+    const ddDataBase = () => `https://ddragon.leagueoflegends.com/cdn/${DD_VERSION}/data/zh_CN`;
+    const ddImgRoot = () => `https://ddragon.leagueoflegends.com/cdn/${DD_VERSION}/img`;
+
+    // 英雄标签 → 位置映射
+    const ROLE_MAP = {
+        'Assassin': 'jungle',
+        'Fighter': 'top',
+        'Mage': 'mid',
+        'Marksman': 'bottom',
+        'Support': 'support',
+        'Tank': 'top'
+    };
+
+    // 分类存储英雄数据
+    let heroData = { top: [], jungle: [], mid: [], bottom: [], support: [] };
+
+    // 获取所有英雄
+    async function fetchAllChampions() {
+        const res = await fetch(`${ddDataBase()}/champion.json`);
+        const data = await res.json();
+        return Object.values(data.data);
+    }
+
+    // 将官方英雄对象映射为前端数据结构
+    function mapChampion(champ) {
+        const tags = champ.tags;
+        const lane = (tags && tags.length > 0) ? (ROLE_MAP[tags[0]] || 'top') : 'top';
+        const iconUrl = `${ddImgRoot()}/champion/${champ.image.full}`;
+        const attackType = champ.info.attack > 5 ? '物理' : '魔法';
+        return {
+            name: champ.name,
+            id: champ.id,
+            icon: iconUrl,
+            dmg: attackType,
+            style: Math.round(champ.info.difficulty / 2),
+            radar: [
+                champ.info.attack * 10,
+                champ.info.defense * 10,
+                champ.info.magic * 10,
+                champ.info.difficulty * 10,
+                50
+            ],
+            lore: champ.lore,
+            skills: (champ.spells || []).map(spell => ({
+                n: spell.name,
+                i: `${ddImgRoot()}/spell/${spell.image.full}`,
+                d: stripHtml(spell.description).substring(0, 80)
+            })),
+            skins: champ.skins.map(skin => ({
+                n: skin.name === 'default' ? champ.name : skin.name,
+                num: skin.num,
+                t: `https://ddragon.leagueoflegends.com/cdn/img/champion/loading/${champ.id}_${skin.num}.jpg`,
+                f: `https://ddragon.leagueoflegends.com/cdn/img/champion/splash/${champ.id}_${skin.num}.jpg`
+            })),
+            // 模拟永恒星碑数据
+            eternals: {
+                kills: Math.floor(Math.random() * 2000),
+                deaths: Math.floor(Math.random() * 1500),
+                assists: Math.floor(Math.random() * 3000),
+                wins: Math.floor(Math.random() * 600)
+            },
+            lane
+        };
+    }
+
+    // 初始化：加载数据并分类
+    async function initHeroModule() {
+        try {
+            const vr = await fetch('https://ddragon.leagueoflegends.com/api/versions.json');
+            if (vr.ok) {
+                const arr = await vr.json();
+                if (Array.isArray(arr) && typeof arr[0] === 'string') DD_VERSION = arr[0];
+            }
+            const champs = await fetchAllChampions();
+            heroData = { top: [], jungle: [], mid: [], bottom: [], support: [] };
+            champs.forEach(c => {
+                const m = mapChampion(c);
+                heroData[m.lane].push(m);
+            });
+        } catch (e) {
+            console.error('英雄数据加载失败', e);
+            showToast('英雄数据加载失败，请刷新重试');
+        }
+    }
+
+    // ==================== 渲染逻辑 ====================
+    let heroChart; // 雷达图实例
+
+    // 渲染英雄列表（按位置）
+    function renderHeroList(pos) {
+        const list = heroData[pos] || [];
+        const laneNames = { top: '上路', jungle: '打野', mid: '中路', bottom: '下路', support: '辅助' };
+        const totalHeroes = ['top', 'jungle', 'mid', 'bottom', 'support'].reduce((n, k) => n + (heroData[k]?.length || 0), 0);
+        const iconsHtml = list.length
+            ? list.map(hr => `
+                    <div class="icon-item" data-name="${esc(hr.name)}">
+                        <img src="${hr.icon}" class="icon-img" loading="lazy" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚔️</text></svg>'">
+                        <span class="label">${esc(hr.name)}</span>
+                    </div>
+                `).join('')
+            : (totalHeroes === 0
+                ? `<div class="hero-empty-all"><strong>未能加载英雄数据</strong>
+                    常见原因：① 使用「文件」方式直接打开本页时，浏览器会拦截对 Data Dragon 的请求；请用本地 HTTP 服务打开（例如在桌面目录执行 <code style="color:var(--tech);">python -m http.server 8080</code> 后访问 <code style="color:var(--tech);">http://localhost:8080/英雄联盟.html</code>）。② 网络无法访问 Riot CDN。③ 控制台 (F12) 中可见具体报错。</div>`
+                : `<div class="hero-empty-all">当前分路「${laneNames[pos] || pos}」暂无英雄条目，请切换其他分路试试。</div>`);
+        let h = `
+            <div class="section-title"><span class="dot"></span>英雄档案</div>
+            <div class="tabs-row" id="heroPosTabs">
+                ${['top', 'jungle', 'mid', 'bottom', 'support'].map(p =>
+                    `<button class="tab-btn ${p===pos?'active':''}" data-pos="${p}">${laneNames[p]}</button>`
+                ).join('')}
+            </div>
+            <div class="search-box"><input id="heroSearch" placeholder="搜索英雄..."></div>
+            <div class="icon-list" id="heroIconList">
+                ${iconsHtml}
+            </div>
+            <div id="heroDetail"></div>`;
+        panels.hero.innerHTML = h;
+
+        // 位置切换
+        document.querySelectorAll('#heroPosTabs .tab-btn').forEach(b => {
+            b.addEventListener('click', () => renderHeroList(b.dataset.pos));
+        });
+
+        // 搜索过滤
+        document.getElementById('heroSearch').addEventListener('input', function() {
+            const q = this.value.toLowerCase();
+            document.querySelectorAll('#heroIconList .icon-item').forEach(el => {
+                el.style.display = el.querySelector('.label').textContent.toLowerCase().includes(q) ? 'flex' : 'none';
+            });
+        });
+
+        // 点击英雄图标展示详情
+        document.querySelectorAll('#heroIconList .icon-item').forEach(el => {
+            el.addEventListener('click', () => {
+                document.querySelectorAll('#heroIconList .icon-item').forEach(x => x.classList.remove('selected'));
+                el.classList.add('selected');
+                const hr = list.find(x => x.name === el.dataset.name);
+                if (hr) renderHeroDetail(hr, pos);
+            });
+        });
+    }
+
+    // 渲染英雄详情
+    function renderHeroDetail(hr, pos) {
+        if (heroChart) { heroChart.destroy(); heroChart = null; }
+        const sp = (hr.style / 5) * 100;
+        const pn = pos === 'top' ? '上路' : pos === 'jungle' ? '打野' : pos === 'mid' ? '中路' : pos === 'bottom' ? '下路' : '辅助';
+        document.getElementById('heroDetail').innerHTML = `
+        <div class="detail-card">
+            <div class="detail-bg" style="background-image:url('${hr.skins[0]?.f||''}');"></div>
+            <div class="detail-content">
+                <div class="hero-header">
+                    <div class="hero-icon"><img src="${hr.icon}" alt=""></div>
+                    <div class="hero-name">${esc(hr.name)}</div>
+                    <span style="color:var(--muted);margin-left:8px;">${pn}</span>
+                </div>
+                <div class="detail-tabs">
+                    <button class="detail-tab active" data-tab="overview">总览</button>
+                    <button class="detail-tab" data-tab="skills">技能</button>
+                    <button class="detail-tab" data-tab="eternals">永恒星碑</button>
+                    <button class="detail-tab" data-tab="skins">皮肤</button>
+                </div>
+                <div id="detailPane" class="detail-pane"></div>
+                <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px;">
+                    <strong>💬 ${esc(hr.name)} 讨论</strong>
+                    <form class="comment-form"><textarea placeholder="谈谈你的看法..."></textarea><button type="submit" class="btn-submit">发布</button></form>
+                    <ul class="comment-list"></ul><div class="empty-comments" style="text-align:center;color:var(--muted);">暂无讨论</div>
+                </div>
+            </div>
+        </div>`;
+
+        // 默认显示总览
+        renderOverview(hr, sp);
+        bindDetailTabs(hr);
+
+        // 初始化评论
+        commentBlock(document.getElementById('heroDetail'), `hex_hero_${hr.name}`);
+    }
+
+    // 总览面板
+    function renderOverview(hr, sp) {
+        if (heroChart) { heroChart.destroy(); heroChart = null; }
+        const pane = document.getElementById('detailPane');
+        pane.innerHTML = `
+        <div class="overview-grid">
+            <div>
+                <div class="attr-box"><div class="attr-label">伤害</div><div>${hr.dmg}伤害</div></div>
+                <div class="attr-box"><div class="attr-label">风格</div>
+                    <div class="style-bar-wrap"><span>⚔️</span><div class="style-bar"><div class="style-fill" style="width:${sp}%"></div></div><span>✨</span></div>
+                    <div class="style-bar-legend"><span>普攻</span><span>技能</span></div>
+                </div>
+            </div>
+            <div class="radar-box"><canvas id="radarCanvas" width="200" height="200"></canvas></div>
+        </div>
+        <div class="lore-box">${esc(hr.lore)}</div>`;
+
+        const ctx = document.getElementById('radarCanvas')?.getContext('2d');
+        if (ctx) {
+            heroChart = new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: ['伤害', '强韧', '控制', '机动', '功能'],
+                    datasets: [{ data: hr.radar, backgroundColor: 'rgba(10,200,184,0.2)', borderColor: '#0ac8b8', borderWidth: 2, pointRadius: 4 }]
+                },
+                options: {
+                    responsive: true,
+                    scales: { r: { min: 0, max: 100, grid: { color: 'rgba(180,203,217,0.12)' }, pointLabels: { color: '#b4cbd9' }, ticks: { display: false } } },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+    }
+
+    // 绑定详情页标签切换
+    function bindDetailTabs(hr) {
+        const pane = document.getElementById('detailPane');
+        document.querySelectorAll('.detail-tab').forEach(t => {
+            t.addEventListener('click', function() {
+                document.querySelectorAll('.detail-tab').forEach(x => x.classList.remove('active'));
+                this.classList.add('active');
+                const tab = this.dataset.tab;
+                if (tab !== 'overview' && heroChart) { heroChart.destroy(); heroChart = null; }
+                switch (tab) {
+                    case 'overview':
+                        renderOverview(hr, (hr.style / 5) * 100);
+                        break;
+                    case 'skills':
+                        pane.innerHTML = `<div class="skill-grid">${hr.skills.map(s => `
+                            <div class="skill-item">
+                                <div class="skill-icon-slot"><img src="${s.i}" alt="" onerror="this.style.display='none'"></div>
+                                <div style="font-weight:700;">${esc(s.n)}</div>
+                                <div style="font-size:0.7rem;color:var(--muted);">${esc(s.d)}</div>
+                            </div>`).join('')}</div>`;
+                        break;
+                    case 'eternals':
+                        pane.innerHTML = ['击杀', '死亡', '助攻', '胜场'].map((k, i) => `
+                            <div style="display:flex;justify-content:space-between;background:rgba(0,0,0,0.3);padding:10px;border-radius:4px;margin-bottom:6px;">
+                                <span>${k}</span><strong>${Object.values(hr.eternals)[i]}</strong>
+                            </div>`).join('');
+                        break;
+                    case 'skins':
+                        pane.innerHTML = `<div class="skin-grid">${hr.skins.map(s => `
+                            <div class="skin-thumb" data-full="${s.f}">
+                                <img src="${s.t}" alt="" onerror="this.onerror=null;this.style.display='none'">
+                                <div class="skin-label">${esc(s.n)}</div>
+                            </div>`).join('')}</div>`;
+                        // 皮肤大图预览
+                        document.querySelectorAll('.skin-thumb').forEach(th => {
+                            th.addEventListener('click', function() {
+                                const src = this.dataset.full;
+                                const ov = document.createElement('div');
+                                ov.className = 'modal-overlay';
+                                ov.innerHTML = `<div class="modal-box" style="max-width:90vw;"><span class="modal-close">✕</span><img src="${src}" style="max-width:100%;max-height:70vh;"></div>`;
+                                document.body.appendChild(ov);
+                                ov.querySelector('.modal-close').onclick = () => ov.remove();
+                                ov.onclick = e => { if (e.target === ov) ov.remove(); };
+                            });
+                        });
+                        break;
+                }
+            });
+        });
+    }
+
+    // 注册模块
+    registerModule('hero',
+        initHeroModule,  // 异步初始化加载数据
+        function render() { renderHeroList('top'); }  // 默认显示上路
+    );
+})();
+// ==================== 物品模块 ====================
+(function() {
+    const { showToast, stripHtml, commentBlock, panels, registerModule } = window.hexTech;
+
+    // Data Dragon 版本与路径 (与英雄模块共用，但独立声明以防加载顺序问题)
+    const DD_VERSION = '14.10.1';
+    const DD_BASE = `https://ddragon.leagueoflegends.com/cdn/${DD_VERSION}/data/zh_CN`;
+    const DD_IMG = `https://ddragon.leagueoflegends.com/cdn/${DD_VERSION}/img`;
+
+    let allItems = [];
+
+    // 获取所有可购买物品
+    async function fetchItems() {
+        const res = await fetch(`${DD_BASE}/item.json`);
+        const data = await res.json();
+        // 过滤掉不可购买的物品（如金币、药水可能仍可购买，视需求保留）
+        return Object.values(data.data).filter(item => item.gold.purchasable);
+    }
+
+    // 映射为前端数据结构
+    function mapItem(item) {
+        return {
+            name: item.name,
+            icon: `${DD_IMG}/item/${item.image.full}`,
+            desc: stripHtml(item.description).substring(0, 120),
+            fullDesc: item.description,
+            price: item.gold.total,
+            id: item.image.full
+        };
+    }
+
+    // 初始化：加载物品数据
+    async function initItemModule() {
+        try {
+            const rawItems = await fetchItems();
+            allItems = rawItems.map(mapItem);
+            // 按价格排序（可选）
+            allItems.sort((a, b) => a.price - b.price);
+        } catch (e) {
+            console.error('装备数据加载失败', e);
+            showToast('装备数据加载失败');
+        }
+    }
+
+    // 渲染物品列表
+    function renderItems() {
+        let h = `
+            <div class="section-title"><span class="dot"></span>物品数据</div>
+            <div class="search-box"><input id="itemSearch" placeholder="搜索物品..."></div>
+            <div class="icon-list" id="itemIconList">
+                ${allItems.map(it => `
+                    <div class="icon-item" data-name="${it.name}">
+                        <img src="${it.icon}" class="icon-img" loading="lazy" onerror="this.style.display='none'">
+                        <span class="label">${it.name}</span>
+                    </div>
+                `).join('')}
+            </div>
+            <div id="itemDetail"></div>`;
+        panels.item.innerHTML = h;
+
+        // 搜索过滤
+        document.getElementById('itemSearch').addEventListener('input', function() {
+            const q = this.value.toLowerCase();
+            document.querySelectorAll('#itemIconList .icon-item').forEach(el => {
+                el.style.display = el.querySelector('.label').textContent.toLowerCase().includes(q) ? 'flex' : 'none';
+            });
+        });
+
+        // 点击物品图标展示详情
+        document.querySelectorAll('#itemIconList .icon-item').forEach(el => {
+            el.addEventListener('click', () => {
+                const it = allItems.find(x => x.name === el.dataset.name);
+                if (!it) return;
+                document.getElementById('itemDetail').innerHTML = `
+                <div class="detail-card">
+                    <div class="detail-content">
+                        <div class="hero-header">
+                            <div class="hero-icon"><img src="${it.icon}" style="width:100%;height:100%;"></div>
+                            <div class="hero-name">${it.name}</div>
+                            <span style="color:var(--gold);margin-left:auto;">💰 ${it.price}</span>
+                        </div>
+                        <div style="background:rgba(0,0,0,0.3);padding:16px;border-radius:6px;margin-bottom:12px;">${it.desc}</div>
+                        <div style="border-top:1px solid var(--border);padding-top:12px;">
+                            <strong>💬 ${it.name} 讨论</strong>
+                            <form class="comment-form"><textarea placeholder="评价..."></textarea><button type="submit" class="btn-submit">发布</button></form>
+                            <ul class="comment-list"></ul><div class="empty-comments" style="text-align:center;color:var(--muted);">暂无讨论</div>
+                        </div>
+                    </div>
+                </div>`;
+                commentBlock(document.getElementById('itemDetail'), `hex_item_${it.name}`);
+            });
+        });
+    }
+
+    // 注册模块
+    registerModule('item',
+        initItemModule,  // 异步初始化
+        renderItems      // 首次切换到物品面板时渲染
+    );
+})();
+// ==================== 召唤师技能模块 ====================
+(function() {
+    const { commentBlock, panels, registerModule } = window.hexTech;
+
+    // 静态数据（可后续从 Data Dragon 动态获取）
+    const spells = [
+        { name: '闪现', icon: '💨', desc: '瞬间传送一小段距离。冷却300秒。' },
+        { name: '点燃', icon: '🔥', desc: '持续伤害并降低治疗效果。冷却180秒。' },
+        { name: '惩戒', icon: '⚡', desc: '对野怪造成真实伤害，并升级打野装备。' },
+        { name: '传送', icon: '🌀', desc: '引导后传送到友方建筑或小兵。冷却360秒。' },
+        { name: '治疗术', icon: '💚', desc: '回复生命值并提升移速。冷却240秒。' },
+        { name: '幽灵疾步', icon: '👻', desc: '大幅提升移动速度。冷却210秒。' },
+        { name: '虚弱', icon: '🥶', desc: '减少目标伤害和移速。冷却210秒。' },
+        { name: '净化', icon: '🛡️', desc: '移除控制效果并短暂免疫。冷却210秒。' },
+        { name: '屏障', icon: '🛡️', desc: '获得临时护盾。冷却180秒。' }
+    ];
+
+    function renderSpells() {
+        let h = `
+            <div class="section-title"><span class="dot"></span>召唤师技能</div>
+            <div class="search-box"><input id="spellSearch" placeholder="搜索技能..."></div>
+            <div class="icon-list" id="spellIconList">
+                ${spells.map(sp => `
+                    <div class="icon-item" data-name="${sp.name}">
+                        <span class="emoji">${sp.icon}</span>
+                        <span class="label">${sp.name}</span>
+                    </div>
+                `).join('')}
+            </div>
+            <div id="spellDetail"></div>`;
+        panels.spell.innerHTML = h;
+
+        // 搜索过滤
+        document.getElementById('spellSearch').addEventListener('input', function() {
+            const q = this.value.toLowerCase();
+            document.querySelectorAll('#spellIconList .icon-item').forEach(el => {
+                el.style.display = el.querySelector('.label').textContent.toLowerCase().includes(q) ? 'flex' : 'none';
+            });
+        });
+
+        // 点击技能图标展示详情
+        document.querySelectorAll('#spellIconList .icon-item').forEach(el => {
+            el.addEventListener('click', () => {
+                const sp = spells.find(x => x.name === el.dataset.name);
+                if (!sp) return;
+                document.getElementById('spellDetail').innerHTML = `
+                <div class="detail-card">
+                    <div class="detail-content">
+                        <div class="hero-header">
+                            <div class="hero-icon">${sp.icon}</div>
+                            <div class="hero-name">${sp.name}</div>
+                        </div>
+                        <div style="background:rgba(0,0,0,0.3);padding:16px;border-radius:6px;margin-bottom:12px;">${sp.desc}</div>
+                        <div style="border-top:1px solid var(--border);padding-top:12px;">
+                            <strong>💬 ${sp.name} 讨论</strong>
+                            <form class="comment-form"><textarea placeholder="讨论..."></textarea><button type="submit" class="btn-submit">发布</button></form>
+                            <ul class="comment-list"></ul><div class="empty-comments" style="text-align:center;color:var(--muted);">暂无讨论</div>
+                        </div>
+                    </div>
+                </div>`;
+                commentBlock(document.getElementById('spellDetail'), `hex_spell_${sp.name}`);
+            });
+        });
+    }
+
+    // 注册模块：无异步初始化
+    registerModule('spell',
+        async function init() {},  // 空初始化
+        renderSpells
+    );
+})();
+// ==================== 地图资源模块 ====================
+(function() {
+    const { showToast, panels, registerModule } = window.hexTech;
+
+    function renderMap() {
+        panels.map.innerHTML = `
+        <div class="section-title"><span class="dot"></span>地图资源</div>
+        <div class="map-container" id="mapContainer"
+             style="background-image: url('https://cdn.wikimg.net/en/leagueoflegends/images/thumb/1/14/Summoner%27s_Rift_map.png/1200px-Summoner%27s_Rift_map.png'); background-size: cover;">
+        </div>`;
+
+        const resources = [
+            { x: 21, y: 62, name: '蓝方红Buff', desc: '首次刷新 0:55 | 重生 5分钟\n提供额外伤害与生命回复' },
+            { x: 31, y: 36, name: '蓝方蓝Buff', desc: '首次刷新 0:55 | 重生 5分钟\n提供法力回复与技能急速' },
+            { x: 79, y: 38, name: '红方红Buff', desc: '首次刷新 0:55 | 重生 5分钟' },
+            { x: 69, y: 64, name: '红方蓝Buff', desc: '首次刷新 0:55 | 重生 5分钟' },
+            { x: 50, y: 29, name: '纳什男爵', desc: '首次刷新 20:00 | 重生 6分钟\n获得男爵之手增益' },
+            { x: 50, y: 71, name: '巨龙', desc: '首次刷新 5:00 | 重生 5分钟\n元素增益' },
+            { x: 45, y: 50, name: '河道迅捷蟹', desc: '首次刷新 2:55 | 重生 2分30秒\n提供视野' },
+            { x: 55, y: 51, name: '河道迅捷蟹', desc: '首次刷新 2:55 | 重生 2分30秒\n提供视野' }
+        ];
+
+        resources.forEach(r => {
+            const m = document.createElement('div');
+            m.className = 'map-marker';
+            m.style.left = r.x + '%';
+            m.style.top = r.y + '%';
+            m.title = r.name;
+            m.addEventListener('click', () => showToast(r.name + ': ' + r.desc.replace(/\n/g, ' | ')));
+            document.getElementById('mapContainer').appendChild(m);
+        });
+    }
+
+    registerModule('map',
+        async function init() {},
+        renderMap
+    );
+})();
+// ==================== 云顶之弈模块 ====================
+(function() {
+    const { commentBlock, panels, registerModule } = window.hexTech;
+
+    // 当前版本（静态，可后续更新）
+    const TFT_VERSION = '13.10 (魔法乱斗)';
+
+    // 羁绊示例数据
+    const synergies = [
+        { name: '决斗大师', icon: '⚔️', desc: '决斗大师们获得额外攻击速度，最多叠加8层。', levels: [2, 4, 6] },
+        { name: '魔法师', icon: '🔮', desc: '魔法师们获得额外法术强度，并且可以双重施法。', levels: [3, 5, 7] },
+        { name: '重骑兵', icon: '🐴', desc: '重骑兵获得伤害减免，并朝目标冲锋。', levels: [2, 4, 6] },
+        { name: '狙神', icon: '🏹', desc: '狙神与目标距离越远，伤害越高。', levels: [2, 4] },
+        { name: '秘术师', icon: '✨', desc: '全队获得魔法抗性。', levels: [2, 3, 4] }
+    ];
+
+    // 棋子示例数据（静态，可扩展）
+    const champions = [
+        { name: '亚索', cost: 1, icon: '⚔️', trait: ['决斗大师', '浪人'], skill: '钢铁风暴：对前方扇形区域造成伤害并获得护盾。' },
+        { name: '拉克丝', cost: 2, icon: '✨', trait: ['魔法师', '光明'], skill: '光之束缚：向最远敌人发射光球，眩晕并造成伤害。' },
+        { name: '赵信', cost: 3, icon: '🛡️', trait: ['决斗大师', '神盾使'], skill: '三重爪击：击飞目标并造成额外伤害。' },
+        { name: '金克丝', cost: 4, icon: '💥', trait: ['狙神', '宿敌'], skill: '鱼骨头飞弹：对随机敌人发射火箭，造成范围伤害。' },
+        { name: '迦娜', cost: 3, icon: '💨', trait: ['秘术师', '风女'], skill: '复苏季风：治疗全体友军并击退敌人。' }
+    ];
+
+    // 渲染云顶之弈面板
+    function renderTFT() {
+        let h = `
+            <div class="section-title"><span class="dot"></span>云顶之弈 · <span style="font-size:0.8rem;color:var(--muted);">${TFT_VERSION}</span></div>
+            
+            <!-- 羁绊选择 -->
+            <div class="tabs-row" id="tftTabs">
+                <button class="tab-btn active" data-tft="champions">⚔️ 棋子</button>
+                <button class="tab-btn" data-tft="synergies">🧩 羁绊</button>
+            </div>
+
+            <div id="tftContent"></div>
+        `;
+        panels.tft.innerHTML = h;
+
+        // 默认显示棋子
+        renderChampions();
+
+        // 切换羁绊/棋子
+        document.querySelectorAll('#tftTabs .tab-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('#tftTabs .tab-btn').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                if (this.dataset.tft === 'champions') renderChampions();
+                else renderSynergies();
+            });
+        });
+    }
+
+    // 渲染棋子列表
+    function renderChampions() {
+        const container = document.getElementById('tftContent');
+        if (!container) return;
+        container.innerHTML = `
+            <div class="search-box"><input id="championSearch" placeholder="搜索棋子..."></div>
+            <div class="icon-list" id="championList">
+                ${champions.map(c => `
+                    <div class="icon-item" data-name="${c.name}">
+                        <span class="emoji">${c.icon}</span>
+                        <span class="label">${c.name} · ${c.cost}💰</span>
+                    </div>
+                `).join('')}
+            </div>
+            <div id="championDetail"></div>
+        `;
+
+        // 搜索
+        document.getElementById('championSearch').addEventListener('input', function() {
+            const q = this.value.toLowerCase();
+            document.querySelectorAll('#championList .icon-item').forEach(el => {
+                el.style.display = el.querySelector('.label').textContent.toLowerCase().includes(q) ? 'flex' : 'none';
+            });
+        });
+
+        // 点击显示详情
+        document.querySelectorAll('#championList .icon-item').forEach(el => {
+            el.addEventListener('click', () => {
+                const champ = champions.find(c => c.name === el.dataset.name);
+                if (!champ) return;
+                document.getElementById('championDetail').innerHTML = `
+                <div class="detail-card">
+                    <div class="detail-content">
+                        <div class="hero-header">
+                            <div class="hero-icon">${champ.icon}</div>
+                            <div class="hero-name">${champ.name}</div>
+                            <span style="color:var(--gold);margin-left:8px;">💰 ${champ.cost}</span>
+                        </div>
+                        <div style="background:rgba(0,0,0,0.3);padding:16px;border-radius:6px;margin-bottom:12px;">
+                            <div class="attr-label">羁绊</div>
+                            <div>${champ.trait.join(' / ')}</div>
+                        </div>
+                        <div style="background:rgba(0,0,0,0.3);padding:16px;border-radius:6px;margin-bottom:12px;">
+                            <div class="attr-label">技能</div>
+                            <div>${champ.skill}</div>
+                        </div>
+                        <div style="border-top:1px solid var(--border);padding-top:12px;">
+                            <strong>💬 ${champ.name} 讨论</strong>
+                            <form class="comment-form"><textarea placeholder="评价..."></textarea><button type="submit" class="btn-submit">发布</button></form>
+                            <ul class="comment-list"></ul><div class="empty-comments" style="text-align:center;color:var(--muted);">暂无讨论</div>
+                        </div>
+                    </div>
+                </div>`;
+                commentBlock(document.getElementById('championDetail'), `hex_tft_${champ.name}`);
+            });
+        });
+    }
+
+    // 渲染羁绊列表
+    function renderSynergies() {
+        const container = document.getElementById('tftContent');
+        if (!container) return;
+        container.innerHTML = `
+            <div class="rune-grid">
+                ${synergies.map(s => `
+                    <div class="rune-item" style="flex-direction:column;align-items:flex-start;gap:4px;">
+                        <span style="font-size:1.2rem;">${s.icon} <strong>${s.name}</strong></span>
+                        <span style="color:var(--muted);font-size:0.75rem;">${s.desc}</span>
+                        <span style="color:var(--tech);font-size:0.7rem;">羁绊人数：${s.levels.join(' / ')}</span>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+
+    // 注册模块：无异步初始化，默认显示即将开启（已在 HTML 中有静态内容，但模块渲染会覆盖）
+    registerModule('tft',
+        async function init() {},
+        renderTFT
+    );
+})();
+            // 启动应用
+            init();
+
+        })();
+    </script>
+</body>
+</html>
