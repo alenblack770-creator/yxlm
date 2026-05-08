@@ -336,7 +336,7 @@
         </div>
     </div>
     <div class="toast" id="toast"></div>
-    <div class="footer">© 2026 海克斯科技数据中枢 · 荣耀归于召唤师</div>
+    <div class="footer">© 2024 海克斯科技数据中枢 · 荣耀归于召唤师</div>
 
     <script>
         (function() {
@@ -355,6 +355,43 @@
                 d.innerHTML = html;
                 return d.textContent || d.innerText || '';
             };
+
+            // ==================== Data Dragon：自动识别最新游戏版本（versions.json 首项） ====================
+            const DATA_DRAGON_FALLBACK_VERSION = '15.1.1';
+            let dataDragonVersion = null;
+
+            async function fetchUrlWithCorsFallback(url) {
+                const okRes = async (r) => {
+                    if (!r || !r.ok) throw new Error(r ? String(r.status) : 'no response');
+                    return r;
+                };
+                try {
+                    return await okRes(await fetch(url));
+                } catch (e1) {
+                    try {
+                        return await okRes(await fetch('https://corsproxy.io/?' + encodeURIComponent(url)));
+                    } catch (e2) {
+                        return await okRes(await fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(url)));
+                    }
+                }
+            }
+
+            async function resolveLatestDataDragonVersion() {
+                dataDragonVersion = null;
+                try {
+                    const res = await fetchUrlWithCorsFallback('https://ddragon.leagueoflegends.com/api/versions.json');
+                    const arr = await res.json();
+                    if (Array.isArray(arr) && arr.length && typeof arr[0] === 'string') {
+                        dataDragonVersion = arr[0];
+                    }
+                } catch (e) {
+                    console.warn('Data Dragon versions.json 获取失败，将使用默认版本号', e);
+                }
+            }
+
+            function getDataDragonVersion() {
+                return dataDragonVersion || DATA_DRAGON_FALLBACK_VERSION;
+            }
 
             // ==================== 用户登录状态管理 ====================
             let currentUser = JSON.parse(localStorage.getItem('hex_user') || 'null');
@@ -497,6 +534,7 @@
 
             // ==================== 初始化 ====================
             async function init() {
+                await resolveLatestDataDragonVersion();
                 // 先初始化所有模块
                 for (const [name, mod] of Object.entries(modules)) {
                     if (mod.init) await mod.init();
@@ -547,7 +585,9 @@
                 commentBlock,
                 registerModule,
                 init,
-                panels
+                panels,
+                getDataDragonVersion,
+                fetchUrlWithCorsFallback
             };
 
             // ==================== 模块加载区域 ====================
@@ -744,12 +784,10 @@
 })();
     // ==================== 英雄模块 ====================
 (function() {
-    const { showToast, stripHtml, commentBlock, panels, registerModule, esc } = window.hexTech;
+    const { showToast, stripHtml, commentBlock, panels, registerModule, esc, getDataDragonVersion, fetchUrlWithCorsFallback } = window.hexTech;
 
-    // Data Dragon：先取最新版本号，避免旧版本 CDN 404；路径随 DD_VERSION 变化
-    let DD_VERSION = '16.9.1';
-    const ddDataBase = () => `https://ddragon.leagueoflegends.com/cdn/${DD_VERSION}/data/zh_CN`;
-    const ddImgRoot = () => `https://ddragon.leagueoflegends.com/cdn/${DD_VERSION}/img`;
+    const ddDataBase = () => `https://ddragon.leagueoflegends.com/cdn/${getDataDragonVersion()}/data/zh_CN`;
+    const ddImgRoot = () => `https://ddragon.leagueoflegends.com/cdn/${getDataDragonVersion()}/img`;
 
     // 英雄标签 → 位置映射
     const ROLE_MAP = {
@@ -763,23 +801,6 @@
 
     // 分类存储英雄数据
     let heroData = { top: [], jungle: [], mid: [], bottom: [], support: [] };
-
-    /** 直连失败时走公开 CORS 代理（GitHub Pages 等环境下常见） */
-    async function fetchUrlWithCorsFallback(url) {
-        const okRes = async (r) => {
-            if (!r || !r.ok) throw new Error(r ? String(r.status) : 'no response');
-            return r;
-        };
-        try {
-            return await okRes(await fetch(url));
-        } catch (e1) {
-            try {
-                return await okRes(await fetch('https://corsproxy.io/?' + encodeURIComponent(url)));
-            } catch (e2) {
-                return await okRes(await fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(url)));
-            }
-        }
-    }
 
     function heroLoadFailHintHtml() {
         const file = location.protocol === 'file:';
@@ -809,54 +830,50 @@
     }
 
     // 将官方英雄对象映射为前端数据结构
- function mapChampion(champ) {
-    const tags = champ.tags;
-    const lane = (tags && tags.length > 0) ? (ROLE_MAP[tags[0]] || 'top') : 'top';
-    const iconUrl = `${DD_IMG}/champion/${champ.image.full}`;
-    const attackType = (champ.info?.attack || 0) > 5 ? '物理' : '魔法';
-    return {
-        name: champ.name,
-        id: champ.id,
-        icon: iconUrl,
-        dmg: attackType,
-        style: Math.round((champ.info?.difficulty || 0) / 2),
-        radar: [
-            (champ.info?.attack || 0) * 10,
-            (champ.info?.defense || 0) * 10,
-            (champ.info?.magic || 0) * 10,
-            (champ.info?.difficulty || 0) * 10,
-            50
-        ],
-        lore: champ.lore,
-        skills: (champ.spells || []).map(spell => ({
-            n: spell.name,
-            i: `${DD_IMG}/spell/${spell.image.full}`,
-            d: stripHtml(spell.description).substring(0, 80)
-        })),
-        skins: (champ.skins || []).map(skin => ({
-            n: skin.name === 'default' ? champ.name : skin.name,
-            num: skin.num,
-            t: `https://ddragon.leagueoflegends.com/cdn/img/champion/loading/${champ.id}_${skin.num}.jpg`,
-            f: `https://ddragon.leagueoflegends.com/cdn/img/champion/splash/${champ.id}_${skin.num}.jpg`
-        })),
-        eternals: {
-            kills: Math.floor(Math.random() * 2000),
-            deaths: Math.floor(Math.random() * 1500),
-            assists: Math.floor(Math.random() * 3000),
-            wins: Math.floor(Math.random() * 600)
-        },
-        lane
-    };
-}
+    function mapChampion(champ) {
+        const tags = champ.tags;
+        const lane = (tags && tags.length > 0) ? (ROLE_MAP[tags[0]] || 'top') : 'top';
+        const iconUrl = `${ddImgRoot()}/champion/${champ.image.full}`;
+        const attackType = champ.info.attack > 5 ? '物理' : '魔法';
+        return {
+            name: champ.name,
+            id: champ.id,
+            icon: iconUrl,
+            dmg: attackType,
+            style: Math.round(champ.info.difficulty / 2),
+            radar: [
+                champ.info.attack * 10,
+                champ.info.defense * 10,
+                champ.info.magic * 10,
+                champ.info.difficulty * 10,
+                50
+            ],
+            lore: champ.lore,
+            skills: (champ.spells || []).map(spell => ({
+                n: spell.name,
+                i: `${ddImgRoot()}/spell/${spell.image.full}`,
+                d: stripHtml(spell.description).substring(0, 80)
+            })),
+            skins: champ.skins.map(skin => ({
+                n: skin.name === 'default' ? champ.name : skin.name,
+                num: skin.num,
+                t: `https://ddragon.leagueoflegends.com/cdn/img/champion/loading/${champ.id}_${skin.num}.jpg`,
+                f: `https://ddragon.leagueoflegends.com/cdn/img/champion/splash/${champ.id}_${skin.num}.jpg`
+            })),
+            // 模拟永恒星碑数据
+            eternals: {
+                kills: Math.floor(Math.random() * 2000),
+                deaths: Math.floor(Math.random() * 1500),
+                assists: Math.floor(Math.random() * 3000),
+                wins: Math.floor(Math.random() * 600)
+            },
+            lane
+        };
+    }
 
     // 初始化：加载数据并分类
     async function initHeroModule() {
         try {
-            try {
-                const vr = await fetchUrlWithCorsFallback('https://ddragon.leagueoflegends.com/api/versions.json');
-                const arr = await vr.json();
-                if (Array.isArray(arr) && typeof arr[0] === 'string') DD_VERSION = arr[0];
-            } catch (_) { /* 使用默认 DD_VERSION */ }
             const champs = await fetchAllChampions();
             heroData = { top: [], jungle: [], mid: [], bottom: [], support: [] };
             champs.forEach(c => {
@@ -889,6 +906,7 @@
                 : `<div class="hero-empty-all">当前分路「${laneNames[pos] || pos}」暂无英雄条目，请切换其他分路试试。</div>`);
         let h = `
             <div class="section-title"><span class="dot"></span>英雄档案</div>
+            <div style="font-size:0.72rem;color:var(--muted);margin:-14px 0 16px;">Data Dragon 版本：<span style="color:var(--tech);">${esc(getDataDragonVersion())}</span>（启动时从 <code style="font-size:0.68rem;">versions.json</code> 自动识别）</div>
             <div class="tabs-row" id="heroPosTabs">
                 ${['top', 'jungle', 'mid', 'bottom', 'support'].map(p =>
                     `<button class="tab-btn ${p===pos?'active':''}" data-pos="${p}">${laneNames[p]}</button>`
@@ -1055,18 +1073,24 @@
 })();
 // ==================== 物品模块 ====================
 (function() {
-    const { showToast, stripHtml, commentBlock, panels, registerModule } = window.hexTech;
+    const { showToast, stripHtml, commentBlock, panels, registerModule, getDataDragonVersion, fetchUrlWithCorsFallback, esc } = window.hexTech;
 
-    // Data Dragon 版本与路径 (与英雄模块共用，但独立声明以防加载顺序问题)
-    const DD_VERSION = '16.9.1';
-    const DD_BASE = `https://ddragon.leagueoflegends.com/cdn/${DD_VERSION}/data/zh_CN`;
-    const DD_IMG = `https://ddragon.leagueoflegends.com/cdn/${DD_VERSION}/img`;
+    const ddItemDataBase = () => `https://ddragon.leagueoflegends.com/cdn/${getDataDragonVersion()}/data/zh_CN`;
+    const ddItemImg = () => `https://ddragon.leagueoflegends.com/cdn/${getDataDragonVersion()}/img`;
 
     let allItems = [];
 
-    // 获取所有可购买物品
+    // 获取所有可购买物品（版本与 champion.json 同源，由启动时 versions.json 自动解析）
     async function fetchItems() {
-        const res = await fetch(`${DD_BASE}/item.json`);
+        const itemUrl = `${ddItemDataBase()}/item.json`;
+        let res;
+        try {
+            res = await fetchUrlWithCorsFallback(itemUrl);
+        } catch (e) {
+            const local = new URL('data/item.json', window.location.href).href;
+            res = await fetch(local);
+            if (!res.ok) throw e;
+        }
         const data = await res.json();
         // 过滤掉不可购买的物品（如金币、药水可能仍可购买，视需求保留）
         return Object.values(data.data).filter(item => item.gold.purchasable);
@@ -1076,7 +1100,7 @@
     function mapItem(item) {
         return {
             name: item.name,
-            icon: `${DD_IMG}/item/${item.image.full}`,
+            icon: `${ddItemImg()}/item/${item.image.full}`,
             desc: stripHtml(item.description).substring(0, 120),
             fullDesc: item.description,
             price: item.gold.total,
@@ -1101,6 +1125,7 @@
     function renderItems() {
         let h = `
             <div class="section-title"><span class="dot"></span>物品数据</div>
+            <div style="font-size:0.72rem;color:var(--muted);margin:-14px 0 16px;">与英雄同源版本：<span style="color:var(--tech);">${esc(getDataDragonVersion())}</span></div>
             <div class="search-box"><input id="itemSearch" placeholder="搜索物品..."></div>
             <div class="icon-list" id="itemIconList">
                 ${allItems.map(it => `
