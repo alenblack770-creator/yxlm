@@ -1457,10 +1457,16 @@ qu<!DOCTYPE html>
             m.style.top = r.y + '%';
             m.dataset.icon = r.icon;
             m.title = r.name;
-            m.addEventListener('click', () => showToast(r.name + ': ' + r.desc.replace(/\\n/g, ' | ')));
+            m.addEventListener('click', () => showToast(r.name + ': ' + r.desc.replace(/\n/g, ' | ')));
             mapContainer.appendChild(m);
         });
     }
+
+    registerModule('map',
+        async function init() {},
+        renderMap
+    );
+})();
 // ==================== 云顶之弈模块 ====================
 (function() {
     const { commentBlock, panels, registerModule } = window.hexTech;
@@ -1595,9 +1601,9 @@ qu<!DOCTYPE html>
         async function init() {},
         renderTFT
     );
+
+    window.hexTech.init();
 })();
-            // 启动应用
-            init();
     </script>
 </body>
 </html>
