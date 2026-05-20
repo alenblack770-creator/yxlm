@@ -877,40 +877,15 @@ qu<!DOCTYPE html>
     }
 
     // 获取所有英雄（同源 data/champion.json 优先，适合 GitHub Pages / 国内无法访问 Riot 时）
-    async function fetchAllChampions() {
-        const localHref = new URL('data/champion.json', window.location.href).href;
-        const applyVersion = (data) => {
-            if (data && data.version) setDataDragonVersion(data.version);
-        };
-        try {
-            const localRes = await fetch(localHref, { cache: 'no-store' });
-            if (localRes.ok) {
-                const data = await localRes.json();
-                if (data && data.data && typeof data.data === 'object') {
-                    applyVersion(data);
-                    return Object.values(data.data);
-                }
-            }
-        } catch (_) { /* 无本地文件或解析失败，继续走 CDN */ }
-
-        const championUrl = `${ddDataBase()}/champion.json`;
-        let res;
-        try {
-            res = await fetchUrlWithCorsFallback(championUrl);
-        } catch (e) {
-            const localRes2 = await fetch(localHref, { cache: 'no-store' });
-            if (!localRes2.ok) throw e;
-            const data = await localRes2.json();
-            applyVersion(data);
-            if (!data || !data.data) throw e;
-            return Object.values(data.data);
-        }
-        const data = await res.json();
-        applyVersion(data);
-        if (!data || !data.data) throw new Error('invalid champion.json');
-        return Object.values(data.data);
-    }
-
+  async function fetchAllChampions() {
+    const localHref = new URL('data/champion.json', window.location.href).href;
+    const localRes = await fetch(localHref, { cache: 'no-store' });
+    if (!localRes.ok) throw new Error('本地 champion.json 不存在');
+    const data = await localRes.json();
+    if (data && data.version) setDataDragonVersion(data.version);
+    if (!data || !data.data) throw new Error('invalid champion.json');
+    return Object.values(data.data);
+}
     // 将官方英雄对象映射为前端数据结构（兼容缺字段的 JSON，避免 skins/spells 缺失时报错）
     function mapChampion(champ) {
         const tags = champ.tags;
